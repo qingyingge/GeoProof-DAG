@@ -1,0 +1,463 @@
+/* 基础重置与字体 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f9fafc;
+}
+
+/* 导航栏 */
+.navbar {
+    background-color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.logo-img {
+    height: 40px;
+    width: auto;
+}
+
+.nav-menu {
+    display: flex;
+    list-style: none;
+    gap: 2rem;
+}
+
+.nav-menu a {
+    text-decoration: none;
+    color: #2c3e50;
+    font-weight: 500;
+    transition: color 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-menu a:hover, .nav-menu a.active {
+    color: #3498db;
+}
+
+.hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.bar {
+    width: 25px;
+    height: 3px;
+    background-color: #2c3e50;
+    margin: 3px 0;
+    transition: 0.3s;
+}
+
+/* 按钮 */
+.btn {
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 1px solid #3498db;
+    color: #3498db;
+}
+
+.btn-outline:hover {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #bdc3c7;
+    border-color: #bdc3c7;
+    color: white;
+}
+
+/* Hero 区域 */
+.hero {
+    max-width: 1200px;
+    margin: 3rem auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.hero-content {
+    flex: 1;
+}
+
+.hero-content h1 {
+    font-size: 2.8rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.hero-content p {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    margin-bottom: 2rem;
+}
+
+.hero-image {
+    flex: 1;
+    text-align: center;
+}
+
+.hero-image img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* 特性卡片 */
+.features {
+    background-color: #fff;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.features h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: #2c3e50;
+}
+
+.card-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.card {
+    flex: 1;
+    min-width: 250px;
+    padding: 2rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card-icon {
+    width: 80px;
+    margin-bottom: 1rem;
+}
+
+.card h3 {
+    margin: 1rem 0;
+}
+
+/* 关于区域 */
+.intro {
+    max-width: 1200px;
+    margin: 4rem auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+}
+
+.intro-text {
+    flex: 1;
+}
+
+.intro-text h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.intro-image {
+    flex: 1;
+    text-align: center;
+}
+
+.intro-image img {
+    max-width: 100%;
+}
+
+/* 操作页面样式 */
+.operation-main, .help-main, .support-main {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.operation-section h1, .help-section h1 {
+    margin-bottom: 1rem;
+}
+
+.demo-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin: 2rem 0;
+}
+
+.counter-box {
+    font-size: 3rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 1rem 0;
+    background: #f1f5f9;
+    padding: 1rem;
+    border-radius: 12px;
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.hint {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.message-area {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: #ecf0f1;
+    border-radius: 6px;
+    min-height: 50px;
+}
+
+/* 帮助页面文档网格 */
+.doc-grid {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+}
+
+.doc-card {
+    flex: 1;
+    min-width: 200px;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.doc-card i {
+    color: #3498db;
+    margin-bottom: 1rem;
+}
+
+.doc-card .btn {
+    margin-top: 1rem;
+}
+
+.faq-section {
+    margin: 3rem 0;
+}
+
+.faq-section details {
+    background: #fff;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.faq-section summary {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+/* 支持页面布局 */
+.support-container {
+    display: flex;
+    gap: 3rem;
+    flex-wrap: wrap;
+}
+
+.support-info {
+    flex: 1;
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+}
+
+.contact-methods {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+}
+
+.method {
+    text-align: center;
+    flex: 1;
+}
+
+.method i {
+    font-size: 2rem;
+    color: #3498db;
+}
+
+.support-illustration {
+    max-width: 100%;
+    margin-top: 1rem;
+}
+
+.support-form {
+    flex: 1;
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+}
+
+.support-form label {
+    display: block;
+    margin: 1rem 0 0.5rem;
+    font-weight: 500;
+}
+
+.support-form input, .support-form textarea {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: inherit;
+}
+
+.support-form button {
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.feedback {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+/* 页脚 */
+.footer {
+    background-color: #2c3e50;
+    color: white;
+    text-align: center;
+    padding: 2rem;
+    margin-top: 4rem;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.social-links {
+    margin-top: 1rem;
+}
+
+.social-links a {
+    color: white;
+    margin: 0 0.5rem;
+    font-size: 1.2rem;
+    transition: color 0.3s;
+}
+
+.social-links a:hover {
+    color: #3498db;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .nav-menu {
+        position: fixed;
+        left: -100%;
+        top: 70px;
+        flex-direction: column;
+        background-color: #fff;
+        width: 100%;
+        text-align: center;
+        transition: 0.3s;
+        box-shadow: 0 10px 10px rgba(0,0,0,0.1);
+        padding: 2rem 0;
+        gap: 1.5rem;
+    }
+    .nav-menu.active {
+        left: 0;
+    }
+    .hamburger {
+        display: flex;
+    }
+    .hamburger.active .bar:nth-child(2) {
+        opacity: 0;
+    }
+    .hamburger.active .bar:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+    }
+    .hamburger.active .bar:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+    }
+    .hero, .intro, .support-container {
+        flex-direction: column;
+    }
+    .hero-content h1 {
+        font-size: 2rem;
+    }
+    .card-grid, .doc-grid {
+        flex-direction: column;
+    }
+}

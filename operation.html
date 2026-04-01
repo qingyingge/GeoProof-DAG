@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操作面板 | GeoProof-DAG</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* DAG 编辑器专用样式（不影响其他页面） */
+        .dag-editor * {
+            user-select: none;
+        }
+        .dag-editor {
+            background: #f0f2f5;
+            border-radius: 28px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .dag-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .canvas-area {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow-x: auto;  /* 移动端可横向滚动 */
+            border: 1px solid #e2e8f0;
+        }
+        canvas {
+            display: block;
+            background: #fefefe;
+            cursor: crosshair;
+            background-image: 
+                linear-gradient(to right, #e9ecef 1px, transparent 1px),
+                linear-gradient(to bottom, #e9ecef 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .node-tip {
+            font-size: 0.7rem;
+            color: #475569;
+            background: #f1f5f9;
+            border-radius: 20px;
+            padding: 6px 12px;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .mode-bar {
+            background: #ffffff;
+            border-radius: 60px;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        }
+        .mode-btn {
+            background: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+            border-radius: 40px;
+            padding: 6px 18px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 0;
+        }
+        .mode-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 2px 6px rgba(59,130,246,0.3);
+        }
+        .mode-status {
+            font-size: 0.75rem;
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 4px 12px;
+            color: #334155;
+            text-align: center;
+        }
+        button.secondary {
+            background: #e2e8f0;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+        .info-badge {
+            background: #eef2ff;
+            border-radius: 12px;
+            padding: 6px 12px;
+            font-size: 0.7rem;
+            color: #1e40af;
+            text-align: center;
+        }
+        /* 覆盖全局按钮样式，保持原编辑器按钮外观 */
+        .mode-btn.btn-primary,
+        .mode-btn.btn-outline {
+            background: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+        .mode-btn.btn-primary.active,
+        .mode-btn.btn-outline.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <img src="images/logo.svg" alt="Logo" class="logo-img">
+                <span>GeoProof-DAG</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html"><i class="fas fa-home"></i> 主页</a></li>
+                <li><a href="operation.html" class="active"><i class="fas fa-sliders-h"></i> 操作面板</a></li>
+                <li><a href="help.html"><i class="fas fa-question-circle"></i> 帮助</a></li>
+                <li><a href="support.html"><i class="fas fa-headset"></i> 支持</a></li>
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="operation-main">
+        <div class="dag-editor">
+            <div class="dag-container">
+                <div class="canvas-area">
+                    <canvas id="graphCanvas" width="900" height="600" style="width:900px;height:600px;"></canvas>
+                    <div class="node-tip">
+                        💡 当前模式: <span id="modeStatusText">拖动模式</span> — 拖拽移动节点 &nbsp;|&nbsp;
+                        ✨ 拖动模式下：双击节点编辑文字，双击边编辑注释
+                    </div>
+                </div>
+
+                <div class="mode-bar">
+                    <button class="mode-btn" data-mode="drag">🖱️ 拖动模式</button>
+                    <button class="mode-btn" data-mode="addNode">➕ 添加点模式</button>
+                    <button class="mode-btn" data-mode="addEdge">🔗 添加边模式</button>
+                    <button class="mode-btn" data-mode="deleteNode">❌ 删除点模式</button>
+                    <button class="mode-btn" data-mode="deleteEdge">✂️ 删除边模式</button>
+                    <button class="mode-btn secondary" id="cancelEdgeSelectionBtn">取消选择起点</button>
+                </div>
+                <div class="info-badge">
+                    ⚡ 有向无环图约束：添加边若形成环将被阻止 | 单击添加节点/边（无文字弹窗）| 双击编辑文字
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2025 GeoProof-DAG | 开发者: 1 人 · 开源在 GitHub</p>
+            <div class="social-links">
+                <a href="#"><i class="fab fa-github"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/operation.js"></script>
+</body>
+</html>
