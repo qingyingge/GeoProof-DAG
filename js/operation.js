@@ -1,4 +1,4 @@
-// GeoProof-DAG 图形编辑器核心逻辑
+// GeoProof-DAG 编辑器核心逻辑 (最终版)
 (function(){
     // ---------- 数据结构 ----------
     let nodes = [];
@@ -6,33 +6,50 @@
     let nextNodeId = 1;
     let nextEdgeId = 1;
 
-    const NODE_WIDTH = 110;
-    const NODE_HEIGHT = 52;
+    const NODE_W = 110;
+    const NODE_H = 52;
 
-    // 拖拽状态
-    let draggingNode = null;
-    let dragOffsetX = 0, dragOffsetY = 0;
+    // 拖拽系统
+    let dragState = {
+        active: false,
+        node: null,
+        startX: 0, startY: 0,
+        offsetX: 0, offsetY: 0,
+        moved: false
+    };
 
-    // 当前交互模式
-    let currentMode = 'drag';   // 'drag', 'addNode', 'addEdge', 'deleteNode', 'deleteEdge'
-    // 添加边模式暂存起点
-    let pendingEdgeStartNode = null;
+    // 添加边暂存起点
+    let pendingSourceNode = null;
 
-    const canvas = document.getElementById('graphCanvas');
+    // 当前选中的元素 (用于详情面板)
+    let currentSelectedElement = null;   // { type: 'node', data: node } 或 { type: 'edge', data: edge }
+
+    // DOM 元素
+    const canvas = document.getElementById('dagCanvas');
     const ctx = canvas.getContext('2d');
+    const statusSpan = document.getElementById('globalStatus');
+    const modalOverlay = document.getElementById('detailModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const nodeSpecificDiv = document.getElementById('nodeSpecificFields');
+    const nodeContentInput = document.getElementById('nodeContentInput');
+    const commentInput = document.getElementById('commentInput');
+    const saveBtn = document.getElementById('saveModalBtn');
+    const cancelBtn = document.getElementById('cancelModalBtn');
+    const deleteBtn = document.getElementById('deleteItemBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
 
     // ---------- 辅助函数 ----------
-    function escapeHtml(str) {
-        if(!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if(m === '&') return '&amp;';
-            if(m === '<') return '&lt;';
-            if(m === '>') return '&gt;';
-            return m;
-        });
+    function updateStatus(msg, isError = false) {
+        if (!statusSpan) return;
+        statusSpan.innerText = msg;
+        statusSpan.style.color = isError ? '#b91c1c' : '#1e40af';
+        setTimeout(() => {
+            if(statusSpan.innerText === msg) statusSpan.innerText = '⚡ 就绪';
+            statusSpan.style.color = '#1e40af';
+        }, 1500);
     }
 
-    // 环检测 (已有边 + 待添加 from->to)
+    // 环检测
     function wouldCreateCycle(fromId, toId) {
         if(fromId === toId) return true;
         const adj = new Map();
@@ -56,58 +73,80 @@
         return isReachable(toId, fromId);
     }
 
-    function addEdgeByIds(fromId, toId, edgeText) {
-        if(!fromId || !toId) { alert('请选择有效的起点和终点'); return false; }
-        if(fromId === toId) { alert('不允许添加自环边'); return false; }
+    function addEdge(fromId, toId, comment = '') {
+        if(!fromId || !toId) return false;
+        if(fromId === toId) { updateStatus('不能添加自环边', true); return false; }
         const exists = edges.some(e => e.fromId === fromId && e.toId === toId);
-        if(exists) { alert('这条有向边已经存在！'); return false; }
-        if(wouldCreateCycle(fromId, toId)) { alert('⚠️ 添加此边会形成环路，操作被阻止！'); return false; }
-        const newEdge = { id: nextEdgeId++, fromId, toId, text: edgeText || '' };
+        if(exists) { updateStatus('边已存在', true); return false; }
+        if(wouldCreateCycle(fromId, toId)) { updateStatus('❌ 添加此边会形成环路', true); return false; }
+        const newEdge = { id: nextEdgeId++, fromId, toId, text: comment || '' };
         edges.push(newEdge);
         drawCanvas();
+        updateStatus(`✔️ 添加边 ${fromId} → ${toId}`);
         return true;
     }
 
-    function addNodeAt(x, y, nodeText) {
-        if(!nodeText || nodeText.trim() === '') nodeText = `节点${nextNodeId}`;
+    function addNodeAt(x, y, text = null, comment = '') {
+        const defaultName = text || `节点${nextNodeId}`;
         const newNode = {
             id: nextNodeId++,
-            text: nodeText.trim(),
-            x: x - NODE_WIDTH/2,
-            y: y - NODE_HEIGHT/2,
-            width: NODE_WIDTH,
-            height: NODE_HEIGHT
+            text: defaultName,
+            comment: comment || '',
+            x: x - NODE_W/2,
+            y: y - NODE_H/2,
+            width: NODE_W,
+            height: NODE_H
         };
         nodes.push(newNode);
         drawCanvas();
+        updateStatus(`➕ 添加节点 “${newNode.text}”`);
         return newNode;
     }
 
     function deleteNodeById(nodeId) {
-        edges = edges.filter(edge => edge.fromId !== nodeId && edge.toId !== nodeId);
-        nodes = nodes.filter(node => node.id !== nodeId);
-        if(draggingNode && draggingNode.id === nodeId) draggingNode = null;
-        if(pendingEdgeStartNode && pendingEdgeStartNode.id === nodeId) pendingEdgeStartNode = null;
-        drawCanvas();
-    }
-
-    function deleteEdgeById(edgeId) {
-        edges = edges.filter(e => e.id !== edgeId);
-        drawCanvas();
-    }
-
-    // 编辑边的文字注释
-    function editEdgeText(edgeId) {
-        const edge = edges.find(e => e.id === edgeId);
-        if(!edge) return;
-        const newText = prompt('编辑边的注释文字:', edge.text);
-        if(newText !== null) {
-            edge.text = newText;
+        const node = nodes.find(n => n.id === nodeId);
+        if(!node) return;
+        if(confirm(`确定要删除节点“${node.text}”及其所有关联边吗？`)) {
+            edges = edges.filter(e => e.fromId !== nodeId && e.toId !== nodeId);
+            nodes = nodes.filter(n => n.id !== nodeId);
+            if(pendingSourceNode && pendingSourceNode.id === nodeId) pendingSourceNode = null;
             drawCanvas();
+            updateStatus(`🗑️ 已删除节点 ${node.text}`);
+            closeModal();
         }
     }
 
-    // 绘制体育场形节点 (带高亮)
+    function deleteEdgeById(edgeId) {
+        const edge = edges.find(e => e.id === edgeId);
+        if(!edge) return;
+        if(confirm(`确定要删除这条边吗？`)) {
+            edges = edges.filter(e => e.id !== edgeId);
+            drawCanvas();
+            updateStatus(`✂️ 已删除边`);
+            closeModal();
+        }
+    }
+
+    function updateNode(nodeId, newText, newComment) {
+        const node = nodes.find(n => n.id === nodeId);
+        if(node) {
+            node.text = newText.trim() || `节点${node.id}`;
+            node.comment = newComment;
+            drawCanvas();
+            updateStatus(`💾 节点已更新`);
+        }
+    }
+
+    function updateEdge(edgeId, newComment) {
+        const edge = edges.find(e => e.id === edgeId);
+        if(edge) {
+            edge.text = newComment;
+            drawCanvas();
+            updateStatus(`💾 边注释已更新`);
+        }
+    }
+
+    // 绘制几何
     function drawStadium(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
         const radius = h / 2;
         ctx.beginPath();
@@ -200,9 +239,8 @@
         }
     }
 
-    // 寻找鼠标下的边 (线段距离)
     function findEdgeUnderPoint(mx, my) {
-        let minDist = 12; // 像素阈值
+        let minDist = 12;
         let closestEdge = null;
         for(const edge of edges) {
             const fromNode = nodes.find(n => n.id === edge.fromId);
@@ -230,132 +268,161 @@
         return closestEdge;
     }
 
+    function findNodeUnderPoint(x, y) {
+        for(let i = nodes.length-1; i >= 0; i--) {
+            const n = nodes[i];
+            if(x >= n.x && x <= n.x + n.width && y >= n.y && y <= n.y + n.height) return n;
+        }
+        return null;
+    }
+
     function drawCanvas() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#fefefe';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         edges.forEach(edge => drawArrowEdge(edge));
         nodes.forEach(node => {
-            const isHighlight = (currentMode === 'addEdge' && pendingEdgeStartNode && pendingEdgeStartNode.id === node.id);
+            const isHighlight = (pendingSourceNode && pendingSourceNode.id === node.id);
             drawStadium(ctx, node.x, node.y, node.width, node.height, '#f8fafc', '#334155', node.text, isHighlight);
         });
     }
 
-    // ----- 模式切换与交互逻辑 -----
-    function setMode(mode) {
-        currentMode = mode;
-        pendingEdgeStartNode = null; // 切换模式时清除待选起点
-        document.querySelectorAll('.mode-btn').forEach(btn => {
-            if(btn.getAttribute('data-mode') === mode) btn.classList.add('active');
-            else btn.classList.remove('active');
-        });
-        let statusText = '';
-        if(mode === 'drag') statusText = '拖动模式 — 拖拽节点移动，双击节点编辑文字，双击边编辑注释';
-        else if(mode === 'addNode') statusText = '添加点模式 — 单击空白区域自动添加体育场形节点（默认文字）';
-        else if(mode === 'addEdge') statusText = '添加边模式 — 单击节点作为起点，再单击另一节点添加有向边（无文字）';
-        else if(mode === 'deleteNode') statusText = '删除点模式 — 单击节点删除该节点及其关联边';
-        else if(mode === 'deleteEdge') statusText = '删除边模式 — 单击边删除该有向边';
-        document.getElementById('modeStatusText').innerText = statusText;
-        drawCanvas(); // 重绘以清除高亮
+    function clearPendingEdge() {
+        if(pendingSourceNode) {
+            pendingSourceNode = null;
+            drawCanvas();
+            updateStatus('已取消添加边');
+        }
     }
+
+    function openNodeModal(node) {
+        currentSelectedElement = { type: 'node', data: node };
+        modalTitle.innerText = `📌 节点 #${node.id}`;
+        nodeSpecificDiv.style.display = 'flex';
+        nodeContentInput.value = node.text;
+        commentInput.value = node.comment || '';
+        modalOverlay.classList.add('active');
+    }
+
+    function openEdgeModal(edge) {
+        currentSelectedElement = { type: 'edge', data: edge };
+        modalTitle.innerText = `🔗 边 ${edge.fromId} → ${edge.toId}`;
+        nodeSpecificDiv.style.display = 'none';
+        commentInput.value = edge.text || '';
+        modalOverlay.classList.add('active');
+    }
+
+    function closeModal() {
+        modalOverlay.classList.remove('active');
+        currentSelectedElement = null;
+    }
+
+    function saveModal() {
+        if(!currentSelectedElement) return;
+        if(currentSelectedElement.type === 'node') {
+            const node = currentSelectedElement.data;
+            const newText = nodeContentInput.value.trim();
+            const newComment = commentInput.value;
+            if(newText === '') {
+                updateStatus('节点文字不能为空', true);
+                return;
+            }
+            updateNode(node.id, newText, newComment);
+            closeModal();
+        } else if(currentSelectedElement.type === 'edge') {
+            const edge = currentSelectedElement.data;
+            updateEdge(edge.id, commentInput.value);
+            closeModal();
+        }
+    }
+
+    function deleteCurrentItem() {
+        if(!currentSelectedElement) return;
+        if(currentSelectedElement.type === 'node') {
+            deleteNodeById(currentSelectedElement.data.id);
+        } else if(currentSelectedElement.type === 'edge') {
+            deleteEdgeById(currentSelectedElement.data.id);
+        }
+    }
+
+    // ----- 交互核心 -----
+    let mouseDownPos = { x: 0, y: 0 };
+    let isDraggingFlag = false;
 
     function onMouseDown(e) {
         const { mx, my } = getMouseCoord(e);
+        mouseDownPos = { x: mx, y: my };
         const clickedNode = findNodeUnderPoint(mx, my);
-        const clickedEdge = (currentMode === 'deleteEdge') ? findEdgeUnderPoint(mx, my) : null;
-
-        // 处理不同模式
-        if(currentMode === 'drag') {
-            if(clickedNode) {
-                draggingNode = clickedNode;
-                dragOffsetX = mx - clickedNode.x;
-                dragOffsetY = my - clickedNode.y;
-                canvas.style.cursor = 'grabbing';
-                e.preventDefault();
-            }
-        }
-        else if(currentMode === 'addNode') {
-            if(!clickedNode) {
-                // 直接添加节点，使用默认名称（不弹窗）
-                const defaultName = `节点${nextNodeId}`;
-                addNodeAt(mx, my, defaultName);
-            }
-        }
-        else if(currentMode === 'addEdge') {
-            if(clickedNode) {
-                if(!pendingEdgeStartNode) {
-                    pendingEdgeStartNode = clickedNode;
-                    drawCanvas(); // 高亮起点
-                } else {
-                    if(pendingEdgeStartNode.id === clickedNode.id) {
-                        alert('起点和终点不能相同，请重新选择起点');
-                        pendingEdgeStartNode = null;
-                        drawCanvas();
-                        return;
-                    }
-                    // 直接添加边，注释为空（不弹窗）
-                    addEdgeByIds(pendingEdgeStartNode.id, clickedNode.id, '');
-                    pendingEdgeStartNode = null;
-                    drawCanvas();
-                }
-            } else {
-                // 点击空白取消选中
-                if(pendingEdgeStartNode) {
-                    pendingEdgeStartNode = null;
-                    drawCanvas();
-                }
-            }
-        }
-        else if(currentMode === 'deleteNode') {
-            if(clickedNode) deleteNodeById(clickedNode.id);
-        }
-        else if(currentMode === 'deleteEdge') {
-            if(clickedEdge) deleteEdgeById(clickedEdge.id);
+        if(clickedNode) {
+            dragState.active = true;
+            dragState.node = clickedNode;
+            dragState.startX = mx;
+            dragState.startY = my;
+            dragState.offsetX = mx - clickedNode.x;
+            dragState.offsetY = my - clickedNode.y;
+            dragState.moved = false;
+            isDraggingFlag = false;
+            e.preventDefault();
+        } else {
+            clearPendingEdge();
+            dragState.active = false;
         }
     }
 
     function onMouseMove(e) {
-        if(currentMode === 'drag' && draggingNode) {
-            const { mx, my } = getMouseCoord(e);
-            let newX = mx - dragOffsetX;
-            let newY = my - dragOffsetY;
-            newX = Math.min(Math.max(0, newX), canvas.width - draggingNode.width);
-            newY = Math.min(Math.max(0, newY), canvas.height - draggingNode.height);
-            draggingNode.x = newX;
-            draggingNode.y = newY;
+        if(!dragState.active) return;
+        const { mx, my } = getMouseCoord(e);
+        const dx = Math.abs(mx - dragState.startX);
+        const dy = Math.abs(my - dragState.startY);
+        if(!dragState.moved && (dx > 5 || dy > 5)) {
+            dragState.moved = true;
+            isDraggingFlag = true;
+            if(pendingSourceNode) clearPendingEdge();
+        }
+        if(dragState.moved && dragState.node) {
+            let newX = mx - dragState.offsetX;
+            let newY = my - dragState.offsetY;
+            newX = Math.min(Math.max(0, newX), canvas.width - dragState.node.width);
+            newY = Math.min(Math.max(0, newY), canvas.height - dragState.node.height);
+            dragState.node.x = newX;
+            dragState.node.y = newY;
             drawCanvas();
         }
     }
 
     function onMouseUp(e) {
-        if(draggingNode) {
-            draggingNode = null;
-            canvas.style.cursor = 'crosshair';
-            drawCanvas();
-        }
-    }
-
-    function onDoubleClick(e) {
+        if(!dragState.active) return;
         const { mx, my } = getMouseCoord(e);
-        // 仅在拖动模式下支持双击编辑，避免与其他模式冲突
-        if(currentMode === 'drag') {
-            // 先检查边
-            const clickedEdge = findEdgeUnderPoint(mx, my);
-            if(clickedEdge) {
-                editEdgeText(clickedEdge.id);
-                return;
-            }
-            // 再检查节点
-            const clickedNode = findNodeUnderPoint(mx, my);
+        const wasDragging = dragState.moved;
+        const clickedNode = findNodeUnderPoint(mx, my);
+        const clickedEdge = !wasDragging ? findEdgeUnderPoint(mx, my) : null;
+        
+        if(!wasDragging) {
             if(clickedNode) {
-                const newText = prompt('编辑节点文字', clickedNode.text);
-                if(newText && newText.trim() !== '') {
-                    clickedNode.text = newText.trim();
-                    drawCanvas();
-                } else if(newText === '') alert('文字不可为空');
-                return;
+                if(pendingSourceNode) {
+                    if(pendingSourceNode.id === clickedNode.id) {
+                        clearPendingEdge();
+                    } else {
+                        addEdge(pendingSourceNode.id, clickedNode.id, '');
+                        clearPendingEdge();
+                    }
+                } else {
+                    openNodeModal(clickedNode);
+                }
+            } 
+            else if(clickedEdge) {
+                if(pendingSourceNode) clearPendingEdge();
+                openEdgeModal(clickedEdge);
+            }
+            else {
+                if(pendingSourceNode) clearPendingEdge();
+                else addNodeAt(mx, my, null, '');
             }
         }
+        dragState.active = false;
+        dragState.node = null;
+        dragState.moved = false;
+        isDraggingFlag = false;
     }
 
     function getMouseCoord(e) {
@@ -369,40 +436,33 @@
         return { mx, my };
     }
 
-    function findNodeUnderPoint(x, y) {
-        for(let i = nodes.length-1; i >= 0; i--) {
-            const n = nodes[i];
-            if(x >= n.x && x <= n.x + n.width && y >= n.y && y <= n.y + n.height) return n;
+    // 全局清除pending (按ESC)
+    window.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape') {
+            if(modalOverlay.classList.contains('active')) closeModal();
+            else clearPendingEdge();
         }
-        return null;
-    }
+    });
 
-    function bindUI() {
-        document.getElementById('cancelEdgeSelectionBtn').addEventListener('click', () => {
-            if(pendingEdgeStartNode) {
-                pendingEdgeStartNode = null;
-                drawCanvas();
-            }
-        });
-        // 模式按钮
-        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
-            btn.addEventListener('click', () => setMode(btn.getAttribute('data-mode')));
-        });
-    }
+    // 模态框事件绑定
+    saveBtn.addEventListener('click', saveModal);
+    cancelBtn.addEventListener('click', closeModal);
+    deleteBtn.addEventListener('click', deleteCurrentItem);
+    closeModalBtn.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => {
+        if(e.target === modalOverlay) closeModal();
+    });
 
-    function setupCanvasEvents() {
-        canvas.addEventListener('mousedown', onMouseDown);
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-        canvas.addEventListener('dblclick', onDoubleClick);
-    }
-
-    function init() {
-        setupCanvasEvents();
-        bindUI();
-        setMode('drag');
-        // 画布初始为空
-        drawCanvas();
-    }
-    init();
+    // 画布事件
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    
+    // 初始化示例（两个演示节点，一条示例边）
+    addNodeAt(200, 200, '起始节点', '这是第一个节点');
+    addNodeAt(500, 300, '目标节点', '可以连接');
+    addEdge(1, 2, '示例边');
+    
+    drawCanvas();
+    updateStatus('编辑器已启动 — 单击空白加点，单击u再单击v加边，单击元素查看详情');
 })();
