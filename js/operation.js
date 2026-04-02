@@ -1,4 +1,4 @@
-// GeoProof-DAG 编辑器核心逻辑 (最终版)
+// GeoProof-DAG 全功能编辑器（整合自独立测试版）
 (function(){
     // ---------- 数据结构 ----------
     let nodes = [];
@@ -9,7 +9,7 @@
     const NODE_W = 110;
     const NODE_H = 52;
 
-    // 拖拽系统
+    // 拖拽状态
     let dragState = {
         active: false,
         node: null,
@@ -18,37 +18,105 @@
         moved: false
     };
 
-    // 添加边暂存起点
+    // 连线模式暂存起点
     let pendingSourceNode = null;
-
-    // 当前选中的元素 (用于详情面板)
-    let currentSelectedElement = null;   // { type: 'node', data: node } 或 { type: 'edge', data: edge }
+    let currentSelectedElement = null;
+    let isModalOpen = false;
 
     // DOM 元素
     const canvas = document.getElementById('dagCanvas');
     const ctx = canvas.getContext('2d');
     const statusSpan = document.getElementById('globalStatus');
-    const modalOverlay = document.getElementById('detailModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const nodeSpecificDiv = document.getElementById('nodeSpecificFields');
-    const nodeContentInput = document.getElementById('nodeContentInput');
-    const commentInput = document.getElementById('commentInput');
-    const saveBtn = document.getElementById('saveModalBtn');
-    const cancelBtn = document.getElementById('cancelModalBtn');
-    const deleteBtn = document.getElementById('deleteItemBtn');
-    const closeModalBtn = document.getElementById('closeModalBtn');
-
-    // ---------- 辅助函数 ----------
+    
+    // 动态创建模态框（避免与全局样式冲突）
+    function createModal() {
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'detailModal';
+        modalDiv.className = 'modal-overlay';
+        modalDiv.innerHTML = `
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="modalTitle">节点详情</h3>
+                    <button class="close-btn" id="closeModalBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="nodeSpecificFields" style="display: none;">
+                        <div class="field">
+                            <label>📝 内容 (节点文字)</label>
+                            <input type="text" id="nodeContentInput" placeholder="节点显示文本">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>💬 注释</label>
+                        <textarea id="commentInput" rows="3" placeholder="添加注释..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="deleteItemBtn" class="btn-delete">🗑️ 删除</button>
+                    <button id="cancelModalBtn" class="btn-cancel">取消</button>
+                    <button id="saveModalBtn" class="btn-save">保存</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        return modalDiv;
+    }
+    
+    let modalOverlay, modalTitle, nodeSpecificDiv, nodeContentInput, commentInput, saveBtn, cancelBtn, deleteBtn, closeModalBtn;
+    
+    function initModal() {
+        modalOverlay = document.getElementById('detailModal');
+        if (!modalOverlay) modalOverlay = createModal();
+        modalTitle = document.getElementById('modalTitle');
+        nodeSpecificDiv = document.getElementById('nodeSpecificFields');
+        nodeContentInput = document.getElementById('nodeContentInput');
+        commentInput = document.getElementById('commentInput');
+        saveBtn = document.getElementById('saveModalBtn');
+        cancelBtn = document.getElementById('cancelModalBtn');
+        deleteBtn = document.getElementById('deleteItemBtn');
+        closeModalBtn = document.getElementById('closeModalBtn');
+        
+        saveBtn.addEventListener('click', saveModal);
+        cancelBtn.addEventListener('click', closeModal);
+        deleteBtn.addEventListener('click', deleteCurrentItem);
+        closeModalBtn.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if(e.target === modalOverlay) closeModal();
+        });
+    }
+    
+    let canvasWidth = 0, canvasHeight = 0;
+    let statusTimeout = null;
+    
     function updateStatus(msg, isError = false) {
-        if (!statusSpan) return;
+        if(statusTimeout) clearTimeout(statusTimeout);
         statusSpan.innerText = msg;
         statusSpan.style.color = isError ? '#b91c1c' : '#1e40af';
-        setTimeout(() => {
+        statusTimeout = setTimeout(() => {
             if(statusSpan.innerText === msg) statusSpan.innerText = '⚡ 就绪';
             statusSpan.style.color = '#1e40af';
-        }, 1500);
+        }, 2000);
     }
-
+    
+    function resizeCanvas() {
+        const container = canvas.parentElement;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const newWidth = rect.width;
+        const newHeight = rect.height;
+        if (canvasWidth !== newWidth || canvasHeight !== newHeight) {
+            canvasWidth = newWidth;
+            canvasHeight = newHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            nodes.forEach(node => {
+                node.x = Math.min(Math.max(0, node.x), canvasWidth - node.width);
+                node.y = Math.min(Math.max(0, node.y), canvasHeight - node.height);
+            });
+            drawCanvas();
+        }
+    }
+    
     // 环检测
     function wouldCreateCycle(fromId, toId) {
         if(fromId === toId) return true;
@@ -72,7 +140,7 @@
         }
         return isReachable(toId, fromId);
     }
-
+    
     function addEdge(fromId, toId, comment = '') {
         if(!fromId || !toId) return false;
         if(fromId === toId) { updateStatus('不能添加自环边', true); return false; }
@@ -85,15 +153,19 @@
         updateStatus(`✔️ 添加边 ${fromId} → ${toId}`);
         return true;
     }
-
+    
     function addNodeAt(x, y, text = null, comment = '') {
+        let nx = x - NODE_W/2;
+        let ny = y - NODE_H/2;
+        nx = Math.min(Math.max(0, nx), canvasWidth - NODE_W);
+        ny = Math.min(Math.max(0, ny), canvasHeight - NODE_H);
         const defaultName = text || `节点${nextNodeId}`;
         const newNode = {
             id: nextNodeId++,
             text: defaultName,
             comment: comment || '',
-            x: x - NODE_W/2,
-            y: y - NODE_H/2,
+            x: nx,
+            y: ny,
             width: NODE_W,
             height: NODE_H
         };
@@ -102,20 +174,20 @@
         updateStatus(`➕ 添加节点 “${newNode.text}”`);
         return newNode;
     }
-
+    
     function deleteNodeById(nodeId) {
         const node = nodes.find(n => n.id === nodeId);
         if(!node) return;
         if(confirm(`确定要删除节点“${node.text}”及其所有关联边吗？`)) {
             edges = edges.filter(e => e.fromId !== nodeId && e.toId !== nodeId);
             nodes = nodes.filter(n => n.id !== nodeId);
-            if(pendingSourceNode && pendingSourceNode.id === nodeId) pendingSourceNode = null;
+            if(pendingSourceNode && pendingSourceNode.id === nodeId) clearPendingEdge();
             drawCanvas();
             updateStatus(`🗑️ 已删除节点 ${node.text}`);
             closeModal();
         }
     }
-
+    
     function deleteEdgeById(edgeId) {
         const edge = edges.find(e => e.id === edgeId);
         if(!edge) return;
@@ -126,7 +198,7 @@
             closeModal();
         }
     }
-
+    
     function updateNode(nodeId, newText, newComment) {
         const node = nodes.find(n => n.id === nodeId);
         if(node) {
@@ -136,7 +208,7 @@
             updateStatus(`💾 节点已更新`);
         }
     }
-
+    
     function updateEdge(edgeId, newComment) {
         const edge = edges.find(e => e.id === edgeId);
         if(edge) {
@@ -145,8 +217,8 @@
             updateStatus(`💾 边注释已更新`);
         }
     }
-
-    // 绘制几何
+    
+    // 绘图函数
     function drawStadium(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
         const radius = h / 2;
         ctx.beginPath();
@@ -169,7 +241,7 @@
         }
         ctx.fillText(displayText, x + w/2, y + h/2);
     }
-
+    
     function getIntersectionPoint(node, fromX, fromY, toX, toY) {
         const left = node.x, right = node.x + node.width, top = node.y, bottom = node.y + node.height;
         const dx = toX - fromX, dy = toY - fromY;
@@ -189,7 +261,7 @@
         }
         return { x: fromX + dx * tmin, y: fromY + dy * tmin };
     }
-
+    
     function drawArrowEdge(edge) {
         const fromNode = nodes.find(n => n.id === edge.fromId);
         const toNode = nodes.find(n => n.id === edge.toId);
@@ -238,7 +310,7 @@
             ctx.restore();
         }
     }
-
+    
     function findEdgeUnderPoint(mx, my) {
         let minDist = 12;
         let closestEdge = null;
@@ -267,7 +339,7 @@
         }
         return closestEdge;
     }
-
+    
     function findNodeUnderPoint(x, y) {
         for(let i = nodes.length-1; i >= 0; i--) {
             const n = nodes[i];
@@ -275,27 +347,31 @@
         }
         return null;
     }
-
+    
     function drawCanvas() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (canvasWidth === 0 || canvasHeight === 0) return;
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.fillStyle = '#fefefe';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         edges.forEach(edge => drawArrowEdge(edge));
         nodes.forEach(node => {
             const isHighlight = (pendingSourceNode && pendingSourceNode.id === node.id);
             drawStadium(ctx, node.x, node.y, node.width, node.height, '#f8fafc', '#334155', node.text, isHighlight);
         });
     }
-
-    function clearPendingEdge() {
+    
+    function clearPendingEdge(silent = false) {
         if(pendingSourceNode) {
             pendingSourceNode = null;
             drawCanvas();
-            updateStatus('已取消添加边');
+            if(!silent) updateStatus('已取消连线模式');
         }
     }
-
+    
     function openNodeModal(node) {
+        if(isModalOpen) return;
+        clearPendingEdge();
+        isModalOpen = true;
         currentSelectedElement = { type: 'node', data: node };
         modalTitle.innerText = `📌 节点 #${node.id}`;
         nodeSpecificDiv.style.display = 'flex';
@@ -303,20 +379,25 @@
         commentInput.value = node.comment || '';
         modalOverlay.classList.add('active');
     }
-
+    
     function openEdgeModal(edge) {
+        if(isModalOpen) return;
+        clearPendingEdge();
+        isModalOpen = true;
         currentSelectedElement = { type: 'edge', data: edge };
         modalTitle.innerText = `🔗 边 ${edge.fromId} → ${edge.toId}`;
         nodeSpecificDiv.style.display = 'none';
         commentInput.value = edge.text || '';
         modalOverlay.classList.add('active');
     }
-
+    
     function closeModal() {
+        if(!isModalOpen) return;
         modalOverlay.classList.remove('active');
         currentSelectedElement = null;
+        isModalOpen = false;
     }
-
+    
     function saveModal() {
         if(!currentSelectedElement) return;
         if(currentSelectedElement.type === 'node') {
@@ -335,7 +416,7 @@
             closeModal();
         }
     }
-
+    
     function deleteCurrentItem() {
         if(!currentSelectedElement) return;
         if(currentSelectedElement.type === 'node') {
@@ -344,87 +425,7 @@
             deleteEdgeById(currentSelectedElement.data.id);
         }
     }
-
-    // ----- 交互核心 -----
-    let mouseDownPos = { x: 0, y: 0 };
-    let isDraggingFlag = false;
-
-    function onMouseDown(e) {
-        const { mx, my } = getMouseCoord(e);
-        mouseDownPos = { x: mx, y: my };
-        const clickedNode = findNodeUnderPoint(mx, my);
-        if(clickedNode) {
-            dragState.active = true;
-            dragState.node = clickedNode;
-            dragState.startX = mx;
-            dragState.startY = my;
-            dragState.offsetX = mx - clickedNode.x;
-            dragState.offsetY = my - clickedNode.y;
-            dragState.moved = false;
-            isDraggingFlag = false;
-            e.preventDefault();
-        } else {
-            clearPendingEdge();
-            dragState.active = false;
-        }
-    }
-
-    function onMouseMove(e) {
-        if(!dragState.active) return;
-        const { mx, my } = getMouseCoord(e);
-        const dx = Math.abs(mx - dragState.startX);
-        const dy = Math.abs(my - dragState.startY);
-        if(!dragState.moved && (dx > 5 || dy > 5)) {
-            dragState.moved = true;
-            isDraggingFlag = true;
-            if(pendingSourceNode) clearPendingEdge();
-        }
-        if(dragState.moved && dragState.node) {
-            let newX = mx - dragState.offsetX;
-            let newY = my - dragState.offsetY;
-            newX = Math.min(Math.max(0, newX), canvas.width - dragState.node.width);
-            newY = Math.min(Math.max(0, newY), canvas.height - dragState.node.height);
-            dragState.node.x = newX;
-            dragState.node.y = newY;
-            drawCanvas();
-        }
-    }
-
-    function onMouseUp(e) {
-        if(!dragState.active) return;
-        const { mx, my } = getMouseCoord(e);
-        const wasDragging = dragState.moved;
-        const clickedNode = findNodeUnderPoint(mx, my);
-        const clickedEdge = !wasDragging ? findEdgeUnderPoint(mx, my) : null;
-        
-        if(!wasDragging) {
-            if(clickedNode) {
-                if(pendingSourceNode) {
-                    if(pendingSourceNode.id === clickedNode.id) {
-                        clearPendingEdge();
-                    } else {
-                        addEdge(pendingSourceNode.id, clickedNode.id, '');
-                        clearPendingEdge();
-                    }
-                } else {
-                    openNodeModal(clickedNode);
-                }
-            } 
-            else if(clickedEdge) {
-                if(pendingSourceNode) clearPendingEdge();
-                openEdgeModal(clickedEdge);
-            }
-            else {
-                if(pendingSourceNode) clearPendingEdge();
-                else addNodeAt(mx, my, null, '');
-            }
-        }
-        dragState.active = false;
-        dragState.node = null;
-        dragState.moved = false;
-        isDraggingFlag = false;
-    }
-
+    
     function getMouseCoord(e) {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -435,34 +436,162 @@
         my = Math.min(Math.max(0, my), canvas.height);
         return { mx, my };
     }
-
-    // 全局清除pending (按ESC)
-    window.addEventListener('keydown', (e) => {
-        if(e.key === 'Escape') {
-            if(modalOverlay.classList.contains('active')) closeModal();
-            else clearPendingEdge();
+    
+    // 交互事件
+    let mouseDownPos = { x: 0, y: 0 };
+    let dragStarted = false;
+    let dragTargetNode = null;
+    let lastClickTime = 0;
+    let lastClickTarget = null;
+    let clickTimer = null;
+    
+    canvas.addEventListener('mousedown', (e) => {
+        if(isModalOpen) return;
+        const { mx, my } = getMouseCoord(e);
+        mouseDownPos = { x: mx, y: my };
+        dragStarted = false;
+        dragTargetNode = findNodeUnderPoint(mx, my);
+        if(dragTargetNode) {
+            dragState.active = true;
+            dragState.node = dragTargetNode;
+            dragState.startX = mx;
+            dragState.startY = my;
+            dragState.offsetX = mx - dragTargetNode.x;
+            dragState.offsetY = my - dragTargetNode.y;
+            dragState.moved = false;
+            e.preventDefault();
+        } else {
+            dragState.active = false;
         }
     });
-
-    // 模态框事件绑定
-    saveBtn.addEventListener('click', saveModal);
-    cancelBtn.addEventListener('click', closeModal);
-    deleteBtn.addEventListener('click', deleteCurrentItem);
-    closeModalBtn.addEventListener('click', closeModal);
-    modalOverlay.addEventListener('click', (e) => {
-        if(e.target === modalOverlay) closeModal();
+    
+    window.addEventListener('mousemove', (e) => {
+        if(isModalOpen) return;
+        if(!dragState.active) return;
+        const { mx, my } = getMouseCoord(e);
+        const dx = Math.abs(mx - dragState.startX);
+        const dy = Math.abs(my - dragState.startY);
+        if(!dragState.moved && (dx > 5 || dy > 5)) {
+            dragState.moved = true;
+            dragStarted = true;
+            if(pendingSourceNode) clearPendingEdge();
+        }
+        if(dragState.moved && dragState.node) {
+            let newX = mx - dragState.offsetX;
+            let newY = my - dragState.offsetY;
+            newX = Math.min(Math.max(0, newX), canvasWidth - dragState.node.width);
+            newY = Math.min(Math.max(0, newY), canvasHeight - dragState.node.height);
+            dragState.node.x = newX;
+            dragState.node.y = newY;
+            drawCanvas();
+        }
     });
-
-    // 画布事件
-    canvas.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
     
-    // 初始化示例（两个演示节点，一条示例边）
-    addNodeAt(200, 200, '起始节点', '这是第一个节点');
-    addNodeAt(500, 300, '目标节点', '可以连接');
-    addEdge(1, 2, '示例边');
+    window.addEventListener('mouseup', (e) => {
+        if(isModalOpen) return;
+        if(dragState.active && dragState.moved) {
+            dragState.active = false;
+            dragState.node = null;
+            dragState.moved = false;
+            dragStarted = false;
+            dragTargetNode = null;
+            return;
+        }
+        const { mx, my } = getMouseCoord(e);
+        const clickedNode = findNodeUnderPoint(mx, my);
+        const clickedEdge = !clickedNode ? findEdgeUnderPoint(mx, my) : null;
+        let targetType = null;
+        let targetData = null;
+        if(clickedNode) {
+            targetType = 'node';
+            targetData = clickedNode;
+        } else if(clickedEdge) {
+            targetType = 'edge';
+            targetData = clickedEdge;
+        } else {
+            targetType = 'blank';
+            targetData = null;
+        }
+        let targetId = null;
+        if(targetType === 'node') targetId = `node_${targetData.id}`;
+        else if(targetType === 'edge') targetId = `edge_${targetData.id}`;
+        else targetId = 'blank';
+        const now = Date.now();
+        const isDouble = (now - lastClickTime < 300) && (targetId === lastClickTarget);
+        lastClickTime = now;
+        lastClickTarget = targetId;
+        if(clickTimer) clearTimeout(clickTimer);
+        if(isDouble) {
+            if(targetType === 'node') {
+                openNodeModal(targetData);
+            } else if(targetType === 'edge') {
+                openEdgeModal(targetData);
+            }
+            if(pendingSourceNode) clearPendingEdge();
+            dragState.active = false;
+            dragState.node = null;
+            dragState.moved = false;
+            dragStarted = false;
+            dragTargetNode = null;
+            return;
+        }
+        clickTimer = setTimeout(() => {
+            if(targetType === 'node') {
+                if(pendingSourceNode) {
+                    if(pendingSourceNode.id === targetData.id) {
+                        clearPendingEdge();
+                    } else {
+                        const success = addEdge(pendingSourceNode.id, targetData.id, '');
+                        clearPendingEdge(true);
+                        if (!success) {}
+                    }
+                } else {
+                    pendingSourceNode = targetData;
+                    drawCanvas();
+                    updateStatus(`🔗 已选择起点 “${targetData.text}”，请单击目标节点添加边`);
+                }
+            } else if(targetType === 'edge') {
+                openEdgeModal(targetData);
+            } else if(targetType === 'blank') {
+                if(pendingSourceNode) clearPendingEdge();
+                addNodeAt(mx, my, null, '');
+            }
+            clickTimer = null;
+        }, 200);
+        dragState.active = false;
+        dragState.node = null;
+        dragState.moved = false;
+        dragStarted = false;
+        dragTargetNode = null;
+    });
     
-    drawCanvas();
-    updateStatus('编辑器已启动 — 单击空白加点，单击u再单击v加边，单击元素查看详情');
+    window.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape') {
+            if(isModalOpen) {
+                closeModal();
+            } else {
+                clearPendingEdge();
+            }
+        }
+    });
+    
+    window.addEventListener('resize', () => {
+        resizeCanvas();
+    });
+    
+    function init() {
+        initModal();
+        resizeCanvas();
+        setTimeout(() => {
+            if (canvasWidth > 0 && canvasHeight > 0 && nodes.length === 0) {
+                addNodeAt(canvasWidth * 0.3, canvasHeight * 0.4, '起始节点', '这是第一个节点');
+                addNodeAt(canvasWidth * 0.7, canvasHeight * 0.6, '目标节点', '可以连接');
+                addEdge(1, 2, '示例边');
+                drawCanvas();
+            }
+        }, 100);
+        updateStatus('编辑器已启动 — 全屏模式，单击节点连线，双击节点编辑，单击边修改注释，空白处加点');
+    }
+    
+    init();
 })();
