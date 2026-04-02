@@ -61,6 +61,7 @@
             padding: 4px 12px;
             font-size: 0.75rem;
             color: #1e40af;
+            transition: all 0.2s;
         }
         button {
             background: #f1f5f9;
@@ -74,8 +75,6 @@
         button:hover {
             background: #e2e8f0;
         }
-
-        /* 模态框样式 */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -193,9 +192,6 @@
         .btn-cancel {
             background: #f1f5f9;
         }
-        hr {
-            margin: 4px 0;
-        }
     </style>
 </head>
 <body>
@@ -206,11 +202,10 @@
     <div class="info-bar">
         <span>📐 体育场形 DAG 编辑器</span>
         <span class="status" id="globalStatus">⚡ 就绪</span>
-        <span>✨ 单击节点选为起点 | 单击另一节点添加边 | 双击节点编辑 | 单击边查看注释 | 拖拽移动 | 空白加点</span>
+        <span>✨ 单击节点连线 | 双击节点编辑 | 单击边修改注释 | 拖拽移动 | 空白处加点</span>
     </div>
 </div>
 
-<!-- 模态框：节点/边详情 -->
 <div id="detailModal" class="modal-overlay">
     <div class="modal">
         <div class="modal-header">
@@ -248,7 +243,7 @@
         const NODE_W = 110;
         const NODE_H = 52;
 
-        // 拖拽系统 (带移动阈值区分单击)
+        // 拖拽状态
         let dragState = {
             active: false,
             node: null,
@@ -257,11 +252,12 @@
             moved: false
         };
 
-        // 添加边暂存起点
+        // 连线模式暂存起点
         let pendingSourceNode = null;
-
-        // 当前选中的元素 (用于详情面板)
-        let currentSelectedElement = null;   // { type: 'node', data: node } 或 { type: 'edge', data: edge }
+        let currentSelectedElement = null;
+        
+        // 模态框是否打开
+        let isModalOpen = false;
 
         // DOM 元素
         const canvas = document.getElementById('dagCanvas');
@@ -277,7 +273,6 @@
         const deleteBtn = document.getElementById('deleteItemBtn');
         const closeModalBtn = document.getElementById('closeModalBtn');
 
-        // ---------- 辅助函数 ----------
         let statusTimeout = null;
         function updateStatus(msg, isError = false) {
             if(statusTimeout) clearTimeout(statusTimeout);
@@ -289,7 +284,7 @@
             }, 2000);
         }
 
-        // 环检测 (已有边 + 待添加 from->to)
+        // 环检测
         function wouldCreateCycle(fromId, toId) {
             if(fromId === toId) return true;
             const adj = new Map();
@@ -349,7 +344,7 @@
             if(confirm(`确定要删除节点“${node.text}”及其所有关联边吗？`)) {
                 edges = edges.filter(e => e.fromId !== nodeId && e.toId !== nodeId);
                 nodes = nodes.filter(n => n.id !== nodeId);
-                if(pendingSourceNode && pendingSourceNode.id === nodeId) pendingSourceNode = null;
+                if(pendingSourceNode && pendingSourceNode.id === nodeId) clearPendingEdge();
                 drawCanvas();
                 updateStatus(`🗑️ 已删除节点 ${node.text}`);
                 closeModal();
@@ -386,7 +381,7 @@
             }
         }
 
-        // 绘制几何 (完全沿用原体育场风格)
+        // 绘图函数
         function drawStadium(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
             const radius = h / 2;
             ctx.beginPath();
@@ -527,18 +522,19 @@
             });
         }
 
-        // 清除添加边暂存
         function clearPendingEdge() {
             if(pendingSourceNode) {
                 pendingSourceNode = null;
                 drawCanvas();
-                updateStatus('已取消添加边');
+                updateStatus('已取消连线模式');
             }
         }
 
-        // 打开模态框 (节点)
+        // 模态框操作
         function openNodeModal(node) {
-            clearPendingEdge();   // 打开详情前清除待添加状态
+            if(isModalOpen) return;
+            clearPendingEdge();
+            isModalOpen = true;
             currentSelectedElement = { type: 'node', data: node };
             modalTitle.innerText = `📌 节点 #${node.id}`;
             nodeSpecificDiv.style.display = 'flex';
@@ -548,7 +544,9 @@
         }
 
         function openEdgeModal(edge) {
-            clearPendingEdge();   // 打开详情前清除待添加状态
+            if(isModalOpen) return;
+            clearPendingEdge();
+            isModalOpen = true;
             currentSelectedElement = { type: 'edge', data: edge };
             modalTitle.innerText = `🔗 边 ${edge.fromId} → ${edge.toId}`;
             nodeSpecificDiv.style.display = 'none';
@@ -557,8 +555,10 @@
         }
 
         function closeModal() {
+            if(!isModalOpen) return;
             modalOverlay.classList.remove('active');
             currentSelectedElement = null;
+            isModalOpen = false;
         }
 
         function saveModal() {
@@ -589,106 +589,7 @@
             }
         }
 
-        // ----- 交互核心：单击/拖拽/双击 混合处理 -----
-        let mouseDownPos = { x: 0, y: 0 };
-        let isDraggingFlag = false;
-
-        function onMouseDown(e) {
-            const { mx, my } = getMouseCoord(e);
-            mouseDownPos = { x: mx, y: my };
-            const clickedNode = findNodeUnderPoint(mx, my);
-            if(clickedNode) {
-                dragState.active = true;
-                dragState.node = clickedNode;
-                dragState.startX = mx;
-                dragState.startY = my;
-                dragState.offsetX = mx - clickedNode.x;
-                dragState.offsetY = my - clickedNode.y;
-                dragState.moved = false;
-                isDraggingFlag = false;
-                e.preventDefault();
-            } else {
-                clearPendingEdge();
-                dragState.active = false;
-            }
-        }
-
-        function onMouseMove(e) {
-            if(!dragState.active) return;
-            const { mx, my } = getMouseCoord(e);
-            const dx = Math.abs(mx - dragState.startX);
-            const dy = Math.abs(my - dragState.startY);
-            if(!dragState.moved && (dx > 5 || dy > 5)) {
-                dragState.moved = true;
-                isDraggingFlag = true;
-                // 开始拖拽时清除添加边待选状态
-                if(pendingSourceNode) clearPendingEdge();
-            }
-            if(dragState.moved && dragState.node) {
-                let newX = mx - dragState.offsetX;
-                let newY = my - dragState.offsetY;
-                newX = Math.min(Math.max(0, newX), canvas.width - dragState.node.width);
-                newY = Math.min(Math.max(0, newY), canvas.height - dragState.node.height);
-                dragState.node.x = newX;
-                dragState.node.y = newY;
-                drawCanvas();
-            }
-        }
-
-        function onMouseUp(e) {
-            if(!dragState.active) return;
-            const { mx, my } = getMouseCoord(e);
-            const wasDragging = dragState.moved;
-            const clickedNode = findNodeUnderPoint(mx, my);
-            const clickedEdge = !wasDragging ? findEdgeUnderPoint(mx, my) : null;
-            
-            if(!wasDragging) {
-                // ---------- 单击事件（非拖拽）----------
-                if(clickedNode) {
-                    // 1. 如果有待添加边的起点
-                    if(pendingSourceNode) {
-                        if(pendingSourceNode.id === clickedNode.id) {
-                            clearPendingEdge();  // 相同节点：取消添加边
-                        } else {
-                            addEdge(pendingSourceNode.id, clickedNode.id, '');
-                            clearPendingEdge();
-                        }
-                    } else {
-                        // 无待添加边：将当前节点设为起点（进入连线模式）
-                        pendingSourceNode = clickedNode;
-                        drawCanvas();
-                        updateStatus(`🔗 已选择起点节点 “${clickedNode.text}”，请单击目标节点添加边`);
-                    }
-                } 
-                else if(clickedEdge) {
-                    // 单击边：清除pending，打开边详情
-                    if(pendingSourceNode) clearPendingEdge();
-                    openEdgeModal(clickedEdge);
-                }
-                else {
-                    // 单击空白：添加节点（清除pending）
-                    if(pendingSourceNode) clearPendingEdge();
-                    else addNodeAt(mx, my, null, '');
-                }
-            }
-            // 重置拖拽状态
-            dragState.active = false;
-            dragState.node = null;
-            dragState.moved = false;
-            isDraggingFlag = false;
-        }
-
-        // 双击节点：打开节点详情
-        function onDoubleClick(e) {
-            const { mx, my } = getMouseCoord(e);
-            const clickedNode = findNodeUnderPoint(mx, my);
-            if(clickedNode) {
-                // 阻止可能的冒泡，防止双击时误触发两次单击逻辑（但已经发生过，不过可以清除pending并打开模态框）
-                clearPendingEdge();
-                openNodeModal(clickedNode);
-            }
-        }
-
+        // 鼠标坐标转换
         function getMouseCoord(e) {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -700,14 +601,153 @@
             return { mx, my };
         }
 
-        // 全局清除pending (按ESC)
-        window.addEventListener('keydown', (e) => {
-            if(e.key === 'Escape') {
-                if(modalOverlay.classList.contains('active')) closeModal();
-                else clearPendingEdge();
+        // ---------- 交互逻辑，增加 isModalOpen 检查 ----------
+        let mouseDownPos = { x: 0, y: 0 };
+        let dragStarted = false;
+        let dragTargetNode = null;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            if(isModalOpen) return;  // 模态框打开时禁止交互
+            const { mx, my } = getMouseCoord(e);
+            mouseDownPos = { x: mx, y: my };
+            dragStarted = false;
+            dragTargetNode = findNodeUnderPoint(mx, my);
+            if(dragTargetNode) {
+                dragState.active = true;
+                dragState.node = dragTargetNode;
+                dragState.startX = mx;
+                dragState.startY = my;
+                dragState.offsetX = mx - dragTargetNode.x;
+                dragState.offsetY = my - dragTargetNode.y;
+                dragState.moved = false;
+                e.preventDefault();
+            } else {
+                dragState.active = false;
             }
         });
-
+        
+        window.addEventListener('mousemove', (e) => {
+            if(isModalOpen) return;
+            if(!dragState.active) return;
+            const { mx, my } = getMouseCoord(e);
+            const dx = Math.abs(mx - dragState.startX);
+            const dy = Math.abs(my - dragState.startY);
+            if(!dragState.moved && (dx > 5 || dy > 5)) {
+                dragState.moved = true;
+                dragStarted = true;
+                if(pendingSourceNode) clearPendingEdge();
+            }
+            if(dragState.moved && dragState.node) {
+                let newX = mx - dragState.offsetX;
+                let newY = my - dragState.offsetY;
+                newX = Math.min(Math.max(0, newX), canvas.width - dragState.node.width);
+                newY = Math.min(Math.max(0, newY), canvas.height - dragState.node.height);
+                dragState.node.x = newX;
+                dragState.node.y = newY;
+                drawCanvas();
+            }
+        });
+        
+        let lastClickTime = 0;
+        let lastClickTarget = null;
+        let clickTimer = null;
+        
+        window.addEventListener('mouseup', (e) => {
+            if(isModalOpen) return;  // 模态框打开时禁止交互
+            
+            if(dragState.active && dragState.moved) {
+                dragState.active = false;
+                dragState.node = null;
+                dragState.moved = false;
+                dragStarted = false;
+                dragTargetNode = null;
+                return;
+            }
+            
+            const { mx, my } = getMouseCoord(e);
+            const clickedNode = findNodeUnderPoint(mx, my);
+            const clickedEdge = !clickedNode ? findEdgeUnderPoint(mx, my) : null;
+            let targetType = null;
+            let targetData = null;
+            if(clickedNode) {
+                targetType = 'node';
+                targetData = clickedNode;
+            } else if(clickedEdge) {
+                targetType = 'edge';
+                targetData = clickedEdge;
+            } else {
+                targetType = 'blank';
+                targetData = null;
+            }
+            
+            let targetId = null;
+            if(targetType === 'node') targetId = `node_${targetData.id}`;
+            else if(targetType === 'edge') targetId = `edge_${targetData.id}`;
+            else targetId = 'blank';
+            
+            const now = Date.now();
+            const isDouble = (now - lastClickTime < 300) && (targetId === lastClickTarget);
+            lastClickTime = now;
+            lastClickTarget = targetId;
+            
+            if(clickTimer) clearTimeout(clickTimer);
+            
+            if(isDouble) {
+                if(targetType === 'node') {
+                    openNodeModal(targetData);
+                } else if(targetType === 'edge') {
+                    openEdgeModal(targetData);
+                }
+                if(pendingSourceNode) clearPendingEdge();
+                dragState.active = false;
+                dragState.node = null;
+                dragState.moved = false;
+                dragStarted = false;
+                dragTargetNode = null;
+                return;
+            }
+            
+            clickTimer = setTimeout(() => {
+                if(targetType === 'node') {
+                    if(pendingSourceNode) {
+                        if(pendingSourceNode.id === targetData.id) {
+                            clearPendingEdge();
+                        } else {
+                            addEdge(pendingSourceNode.id, targetData.id, '');
+                            clearPendingEdge();
+                        }
+                    } else {
+                        pendingSourceNode = targetData;
+                        drawCanvas();
+                        updateStatus(`🔗 已选择起点 “${targetData.text}”，请单击目标节点添加边`);
+                    }
+                } else if(targetType === 'edge') {
+                    openEdgeModal(targetData);
+                } else if(targetType === 'blank') {
+                    if(pendingSourceNode) clearPendingEdge();
+                    addNodeAt(mx, my, null, '');
+                }
+                clickTimer = null;
+            }, 200);
+            
+            dragState.active = false;
+            dragState.node = null;
+            dragState.moved = false;
+            dragStarted = false;
+            dragTargetNode = null;
+        });
+        
+        // ESC 关闭模态框或取消连线
+        window.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape') {
+                if(isModalOpen) {
+                    closeModal();
+                } else {
+                    clearPendingEdge();
+                }
+            }
+        });
+        
         // 模态框事件绑定
         saveBtn.addEventListener('click', saveModal);
         cancelBtn.addEventListener('click', closeModal);
@@ -716,20 +756,14 @@
         modalOverlay.addEventListener('click', (e) => {
             if(e.target === modalOverlay) closeModal();
         });
-
-        // 初始化画布事件
-        canvas.addEventListener('mousedown', onMouseDown);
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-        canvas.addEventListener('dblclick', onDoubleClick);
         
-        // 初始示例节点
+        // 初始示例
         addNodeAt(200, 200, '起始节点', '这是第一个节点');
         addNodeAt(500, 300, '目标节点', '可以连接');
         addEdge(1, 2, '示例边');
         
         drawCanvas();
-        updateStatus('编辑器已启动 — 单击节点选为起点，单击另一节点加边；双击节点编辑；单击边查看注释');
+        updateStatus('编辑器已启动 — 单击节点连线，双击节点编辑，单击边修改注释，空白处加点');
     })();
 </script>
 </body>
