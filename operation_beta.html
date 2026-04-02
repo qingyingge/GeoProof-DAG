@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>GeoProof-DAG · 智能有向无环图编辑器</title>
+    <style>
+        * {
+            user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .editor-container {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .canvas-area {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: auto;
+            border: 1px solid #e2e8f0;
+        }
+        canvas {
+            display: block;
+            background: #fefefe;
+            cursor: crosshair;
+            background-image: 
+                linear-gradient(to right, #e9ecef 1px, transparent 1px),
+                linear-gradient(to bottom, #e9ecef 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 0.8rem;
+            color: #334155;
+            background: #f8fafc;
+            border-radius: 40px;
+            padding: 8px 20px;
+        }
+        .status {
+            background: #eef2ff;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: #1e40af;
+        }
+        button {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 30px;
+            padding: 4px 14px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #e2e8f0;
+        }
+
+        /* 模态框样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(3px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .modal-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal {
+            background: white;
+            width: 320px;
+            max-width: 90%;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+            overflow: hidden;
+            animation: fadeInUp 0.2s ease;
+        }
+        @keyframes fadeInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            color: #64748b;
+        }
+        .close-btn:hover {
+            color: #0f172a;
+        }
+        .modal-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .field label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+            letter-spacing: 0.5px;
+        }
+        .field input, .field textarea {
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            padding: 8px 12px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+        .field textarea {
+            min-height: 70px;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 12px 20px 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .modal-footer button {
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-weight: 500;
+        }
+        .btn-save {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        .btn-save:hover {
+            background: #2563eb;
+        }
+        .btn-delete {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+        .btn-delete:hover {
+            background: #fecaca;
+        }
+        .btn-cancel {
+            background: #f1f5f9;
+        }
+        hr {
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="editor-container">
+    <div class="canvas-area">
+        <canvas id="dagCanvas" width="1000" height="650" style="width:1000px;height:650px;"></canvas>
+    </div>
+    <div class="info-bar">
+        <span>📐 体育场形 DAG 编辑器</span>
+        <span class="status" id="globalStatus">⚡ 就绪</span>
+        <span>✨ 单击节点选为起点 | 单击另一节点添加边 | 双击节点编辑 | 单击边查看注释 | 拖拽移动 | 空白加点</span>
+    </div>
+</div>
+
+<!-- 模态框：节点/边详情 -->
+<div id="detailModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">节点详情</h3>
+            <button class="close-btn" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="nodeSpecificFields" style="display: none;">
+                <div class="field">
+                    <label>📝 内容 (节点文字)</label>
+                    <input type="text" id="nodeContentInput" placeholder="节点显示文本">
+                </div>
+            </div>
+            <div class="field">
+                <label>💬 注释</label>
+                <textarea id="commentInput" rows="3" placeholder="添加注释..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="deleteItemBtn" class="btn-delete">🗑️ 删除</button>
+            <button id="cancelModalBtn" class="btn-cancel">取消</button>
+            <button id="saveModalBtn" class="btn-save">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- 数据结构 ----------
+        let nodes = [];
+        let edges = [];
+        let nextNodeId = 1;
+        let nextEdgeId = 1;
+
+        const NODE_W = 110;
+        const NODE_H = 52;
+
+        // 拖拽系统 (带移动阈值区分单击)
+        let dragState = {
+            active: false,
+            node: null,
+            startX: 0, startY: 0,
+            offsetX: 0, offsetY: 0,
+            moved: false
+        };
+
+        // 添加边暂存起点
+        let pendingSourceNode = null;
+
+        // 当前选中的元素 (用于详情面板)
+        let currentSelectedElement = null;   // { type: 'node', data: node } 或 { type: 'edge', data: edge }
+
+        // DOM 元素
+        const canvas = document.getElementById('dagCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusSpan = document.getElementById('globalStatus');
+        const modalOverlay = document.getElementById('detailModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const nodeSpecificDiv = document.getElementById('nodeSpecificFields');
+        const nodeContentInput = document.getElementById('nodeContentInput');
+        const commentInput = document.getElementById('commentInput');
+        const saveBtn = document.getElementById('saveModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+        const deleteBtn = document.getElementById('deleteItemBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        // ---------- 辅助函数 ----------
+        let statusTimeout = null;
+        function updateStatus(msg, isError = false) {
+            if(statusTimeout) clearTimeout(statusTimeout);
+            statusSpan.innerText = msg;
+            statusSpan.style.color = isError ? '#b91c1c' : '#1e40af';
+            statusTimeout = setTimeout(() => {
+                if(statusSpan.innerText === msg) statusSpan.innerText = '⚡ 就绪';
+                statusSpan.style.color = '#1e40af';
+            }, 2000);
+        }
+
+        // 环检测 (已有边 + 待添加 from->to)
+        function wouldCreateCycle(fromId, toId) {
+            if(fromId === toId) return true;
+            const adj = new Map();
+            nodes.forEach(node => adj.set(node.id, []));
+            edges.forEach(edge => adj.get(edge.fromId).push(edge.toId));
+            adj.get(fromId).push(toId);
+            function isReachable(src, target) {
+                if(src === target) return true;
+                const visited = new Set();
+                const stack = [src];
+                while(stack.length) {
+                    const current = stack.pop();
+                    if(current === target) return true;
+                    if(visited.has(current)) continue;
+                    visited.add(current);
+                    const neighbors = adj.get(current) || [];
+                    for(const nb of neighbors) if(!visited.has(nb)) stack.push(nb);
+                }
+                return false;
+            }
+            return isReachable(toId, fromId);
+        }
+
+        function addEdge(fromId, toId, comment = '') {
+            if(!fromId || !toId) return false;
+            if(fromId === toId) { updateStatus('不能添加自环边', true); return false; }
+            const exists = edges.some(e => e.fromId === fromId && e.toId === toId);
+            if(exists) { updateStatus('边已存在', true); return false; }
+            if(wouldCreateCycle(fromId, toId)) { updateStatus('❌ 添加此边会形成环路', true); return false; }
+            const newEdge = { id: nextEdgeId++, fromId, toId, text: comment || '' };
+            edges.push(newEdge);
+            drawCanvas();
+            updateStatus(`✔️ 添加边 ${fromId} → ${toId}`);
+            return true;
+        }
+
+        function addNodeAt(x, y, text = null, comment = '') {
+            const defaultName = text || `节点${nextNodeId}`;
+            const newNode = {
+                id: nextNodeId++,
+                text: defaultName,
+                comment: comment || '',
+                x: x - NODE_W/2,
+                y: y - NODE_H/2,
+                width: NODE_W,
+                height: NODE_H
+            };
+            nodes.push(newNode);
+            drawCanvas();
+            updateStatus(`➕ 添加节点 “${newNode.text}”`);
+            return newNode;
+        }
+
+        function deleteNodeById(nodeId) {
+            const node = nodes.find(n => n.id === nodeId);
+            if(!node) return;
+            if(confirm(`确定要删除节点“${node.text}”及其所有关联边吗？`)) {
+                edges = edges.filter(e => e.fromId !== nodeId && e.toId !== nodeId);
+                nodes = nodes.filter(n => n.id !== nodeId);
+                if(pendingSourceNode && pendingSourceNode.id === nodeId) pendingSourceNode = null;
+                drawCanvas();
+                updateStatus(`🗑️ 已删除节点 ${node.text}`);
+                closeModal();
+            }
+        }
+
+        function deleteEdgeById(edgeId) {
+            const edge = edges.find(e => e.id === edgeId);
+            if(!edge) return;
+            if(confirm(`确定要删除这条边吗？`)) {
+                edges = edges.filter(e => e.id !== edgeId);
+                drawCanvas();
+                updateStatus(`✂️ 已删除边`);
+                closeModal();
+            }
+        }
+
+        function updateNode(nodeId, newText, newComment) {
+            const node = nodes.find(n => n.id === nodeId);
+            if(node) {
+                node.text = newText.trim() || `节点${node.id}`;
+                node.comment = newComment;
+                drawCanvas();
+                updateStatus(`💾 节点已更新`);
+            }
+        }
+
+        function updateEdge(edgeId, newComment) {
+            const edge = edges.find(e => e.id === edgeId);
+            if(edge) {
+                edge.text = newComment;
+                drawCanvas();
+                updateStatus(`💾 边注释已更新`);
+            }
+        }
+
+        // 绘制几何 (完全沿用原体育场风格)
+        function drawStadium(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
+            const radius = h / 2;
+            ctx.beginPath();
+            ctx.arc(x + radius, y + radius, radius, Math.PI/2, 3*Math.PI/2);
+            ctx.arc(x + w - radius, y + radius, radius, -Math.PI/2, Math.PI/2);
+            ctx.closePath();
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+            ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
+            ctx.lineWidth = highlight ? 3 : 2;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `500 14px "Segoe UI", system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let displayText = text;
+            if(ctx.measureText(displayText).width > w - 20) {
+                while(ctx.measureText(displayText + '...').width > w - 20 && displayText.length > 0) displayText = displayText.slice(0, -1);
+                displayText += '...';
+            }
+            ctx.fillText(displayText, x + w/2, y + h/2);
+        }
+
+        function getIntersectionPoint(node, fromX, fromY, toX, toY) {
+            const left = node.x, right = node.x + node.width, top = node.y, bottom = node.y + node.height;
+            const dx = toX - fromX, dy = toY - fromY;
+            if(dx === 0 && dy === 0) return {x: node.x + node.width/2, y: node.y + node.height/2};
+            let tmin = 1;
+            if(dx !== 0) {
+                let t = (left - fromX) / dx;
+                if(t >= 0 && t <= 1) { let y = fromY + dy * t; if(y >= top && y <= bottom && t < tmin) tmin = t; }
+                t = (right - fromX) / dx;
+                if(t >= 0 && t <= 1) { let y = fromY + dy * t; if(y >= top && y <= bottom && t < tmin) tmin = t; }
+            }
+            if(dy !== 0) {
+                let t = (top - fromY) / dy;
+                if(t >= 0 && t <= 1) { let x = fromX + dx * t; if(x >= left && x <= right && t < tmin) tmin = t; }
+                t = (bottom - fromY) / dy;
+                if(t >= 0 && t <= 1) { let x = fromX + dx * t; if(x >= left && x <= right && t < tmin) tmin = t; }
+            }
+            return { x: fromX + dx * tmin, y: fromY + dy * tmin };
+        }
+
+        function drawArrowEdge(edge) {
+            const fromNode = nodes.find(n => n.id === edge.fromId);
+            const toNode = nodes.find(n => n.id === edge.toId);
+            if(!fromNode || !toNode) return;
+            const startCenter = { x: fromNode.x + fromNode.width/2, y: fromNode.y + fromNode.height/2 };
+            const endCenter = { x: toNode.x + toNode.width/2, y: toNode.y + toNode.height/2 };
+            const startPt = getIntersectionPoint(fromNode, endCenter.x, endCenter.y, startCenter.x, startCenter.y);
+            const endPt = getIntersectionPoint(toNode, startCenter.x, startCenter.y, endCenter.x, endCenter.y);
+            ctx.beginPath();
+            ctx.moveTo(startPt.x, startPt.y);
+            ctx.lineTo(endPt.x, endPt.y);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
+            const angle = Math.atan2(endPt.y - startPt.y, endPt.x - startPt.x);
+            const arrowSize = 12;
+            const arrowX = endPt.x, arrowY = endPt.y;
+            const a1 = angle - Math.PI/6, a2 = angle + Math.PI/6;
+            const p1 = { x: arrowX - arrowSize * Math.cos(a1), y: arrowY - arrowSize * Math.sin(a1) };
+            const p2 = { x: arrowX - arrowSize * Math.cos(a2), y: arrowY - arrowSize * Math.sin(a2) };
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.moveTo(endPt.x, endPt.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.fill();
+            if(edge.text && edge.text.trim() !== '') {
+                const midX = (startPt.x + endPt.x) / 2;
+                const midY = (startPt.y + endPt.y) / 2;
+                const offset = 12;
+                let angleLine = angle;
+                let perpX = -Math.sin(angleLine) * offset;
+                let perpY = Math.cos(angleLine) * offset;
+                const textX = midX + perpX, textY = midY + perpY;
+                ctx.save();
+                ctx.font = '12px "Segoe UI", system-ui';
+                const metrics = ctx.measureText(edge.text);
+                const padding = 6;
+                const bgW = metrics.width + padding * 2, bgH = 20;
+                ctx.fillStyle = 'rgba(255, 255, 240, 0.9)';
+                ctx.fillRect(textX - bgW/2, textY - bgH/2, bgW, bgH);
+                ctx.fillStyle = '#0f172b';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(edge.text, textX, textY);
+                ctx.restore();
+            }
+        }
+
+        function findEdgeUnderPoint(mx, my) {
+            let minDist = 12;
+            let closestEdge = null;
+            for(const edge of edges) {
+                const fromNode = nodes.find(n => n.id === edge.fromId);
+                const toNode = nodes.find(n => n.id === edge.toId);
+                if(!fromNode || !toNode) continue;
+                const startCenter = { x: fromNode.x + fromNode.width/2, y: fromNode.y + fromNode.height/2 };
+                const endCenter = { x: toNode.x + toNode.width/2, y: toNode.y + toNode.height/2 };
+                const startPt = getIntersectionPoint(fromNode, endCenter.x, endCenter.y, startCenter.x, startCenter.y);
+                const endPt = getIntersectionPoint(toNode, startCenter.x, startCenter.y, endCenter.x, endCenter.y);
+                const A = { x: startPt.x, y: startPt.y };
+                const B = { x: endPt.x, y: endPt.y };
+                const ABx = B.x - A.x, ABy = B.y - A.y;
+                const t = ((mx - A.x) * ABx + (my - A.y) * ABy) / (ABx * ABx + ABy * ABy || 1);
+                let closestX, closestY;
+                if(t <= 0) { closestX = A.x; closestY = A.y; }
+                else if(t >= 1) { closestX = B.x; closestY = B.y; }
+                else { closestX = A.x + t * ABx; closestY = A.y + t * ABy; }
+                const dx = mx - closestX, dy = my - closestY;
+                const dist = Math.hypot(dx, dy);
+                if(dist < minDist) {
+                    minDist = dist;
+                    closestEdge = edge;
+                }
+            }
+            return closestEdge;
+        }
+
+        function findNodeUnderPoint(x, y) {
+            for(let i = nodes.length-1; i >= 0; i--) {
+                const n = nodes[i];
+                if(x >= n.x && x <= n.x + n.width && y >= n.y && y <= n.y + n.height) return n;
+            }
+            return null;
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#fefefe';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            edges.forEach(edge => drawArrowEdge(edge));
+            nodes.forEach(node => {
+                const isHighlight = (pendingSourceNode && pendingSourceNode.id === node.id);
+                drawStadium(ctx, node.x, node.y, node.width, node.height, '#f8fafc', '#334155', node.text, isHighlight);
+            });
+        }
+
+        // 清除添加边暂存
+        function clearPendingEdge() {
+            if(pendingSourceNode) {
+                pendingSourceNode = null;
+                drawCanvas();
+                updateStatus('已取消添加边');
+            }
+        }
+
+        // 打开模态框 (节点)
+        function openNodeModal(node) {
+            clearPendingEdge();   // 打开详情前清除待添加状态
+            currentSelectedElement = { type: 'node', data: node };
+            modalTitle.innerText = `📌 节点 #${node.id}`;
+            nodeSpecificDiv.style.display = 'flex';
+            nodeContentInput.value = node.text;
+            commentInput.value = node.comment || '';
+            modalOverlay.classList.add('active');
+        }
+
+        function openEdgeModal(edge) {
+            clearPendingEdge();   // 打开详情前清除待添加状态
+            currentSelectedElement = { type: 'edge', data: edge };
+            modalTitle.innerText = `🔗 边 ${edge.fromId} → ${edge.toId}`;
+            nodeSpecificDiv.style.display = 'none';
+            commentInput.value = edge.text || '';
+            modalOverlay.classList.add('active');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+            currentSelectedElement = null;
+        }
+
+        function saveModal() {
+            if(!currentSelectedElement) return;
+            if(currentSelectedElement.type === 'node') {
+                const node = currentSelectedElement.data;
+                const newText = nodeContentInput.value.trim();
+                const newComment = commentInput.value;
+                if(newText === '') {
+                    updateStatus('节点文字不能为空', true);
+                    return;
+                }
+                updateNode(node.id, newText, newComment);
+                closeModal();
+            } else if(currentSelectedElement.type === 'edge') {
+                const edge = currentSelectedElement.data;
+                updateEdge(edge.id, commentInput.value);
+                closeModal();
+            }
+        }
+
+        function deleteCurrentItem() {
+            if(!currentSelectedElement) return;
+            if(currentSelectedElement.type === 'node') {
+                deleteNodeById(currentSelectedElement.data.id);
+            } else if(currentSelectedElement.type === 'edge') {
+                deleteEdgeById(currentSelectedElement.data.id);
+            }
+        }
+
+        // ----- 交互核心：单击/拖拽/双击 混合处理 -----
+        let mouseDownPos = { x: 0, y: 0 };
+        let isDraggingFlag = false;
+
+        function onMouseDown(e) {
+            const { mx, my } = getMouseCoord(e);
+            mouseDownPos = { x: mx, y: my };
+            const clickedNode = findNodeUnderPoint(mx, my);
+            if(clickedNode) {
+                dragState.active = true;
+                dragState.node = clickedNode;
+                dragState.startX = mx;
+                dragState.startY = my;
+                dragState.offsetX = mx - clickedNode.x;
+                dragState.offsetY = my - clickedNode.y;
+                dragState.moved = false;
+                isDraggingFlag = false;
+                e.preventDefault();
+            } else {
+                clearPendingEdge();
+                dragState.active = false;
+            }
+        }
+
+        function onMouseMove(e) {
+            if(!dragState.active) return;
+            const { mx, my } = getMouseCoord(e);
+            const dx = Math.abs(mx - dragState.startX);
+            const dy = Math.abs(my - dragState.startY);
+            if(!dragState.moved && (dx > 5 || dy > 5)) {
+                dragState.moved = true;
+                isDraggingFlag = true;
+                // 开始拖拽时清除添加边待选状态
+                if(pendingSourceNode) clearPendingEdge();
+            }
+            if(dragState.moved && dragState.node) {
+                let newX = mx - dragState.offsetX;
+                let newY = my - dragState.offsetY;
+                newX = Math.min(Math.max(0, newX), canvas.width - dragState.node.width);
+                newY = Math.min(Math.max(0, newY), canvas.height - dragState.node.height);
+                dragState.node.x = newX;
+                dragState.node.y = newY;
+                drawCanvas();
+            }
+        }
+
+        function onMouseUp(e) {
+            if(!dragState.active) return;
+            const { mx, my } = getMouseCoord(e);
+            const wasDragging = dragState.moved;
+            const clickedNode = findNodeUnderPoint(mx, my);
+            const clickedEdge = !wasDragging ? findEdgeUnderPoint(mx, my) : null;
+            
+            if(!wasDragging) {
+                // ---------- 单击事件（非拖拽）----------
+                if(clickedNode) {
+                    // 1. 如果有待添加边的起点
+                    if(pendingSourceNode) {
+                        if(pendingSourceNode.id === clickedNode.id) {
+                            clearPendingEdge();  // 相同节点：取消添加边
+                        } else {
+                            addEdge(pendingSourceNode.id, clickedNode.id, '');
+                            clearPendingEdge();
+                        }
+                    } else {
+                        // 无待添加边：将当前节点设为起点（进入连线模式）
+                        pendingSourceNode = clickedNode;
+                        drawCanvas();
+                        updateStatus(`🔗 已选择起点节点 “${clickedNode.text}”，请单击目标节点添加边`);
+                    }
+                } 
+                else if(clickedEdge) {
+                    // 单击边：清除pending，打开边详情
+                    if(pendingSourceNode) clearPendingEdge();
+                    openEdgeModal(clickedEdge);
+                }
+                else {
+                    // 单击空白：添加节点（清除pending）
+                    if(pendingSourceNode) clearPendingEdge();
+                    else addNodeAt(mx, my, null, '');
+                }
+            }
+            // 重置拖拽状态
+            dragState.active = false;
+            dragState.node = null;
+            dragState.moved = false;
+            isDraggingFlag = false;
+        }
+
+        // 双击节点：打开节点详情
+        function onDoubleClick(e) {
+            const { mx, my } = getMouseCoord(e);
+            const clickedNode = findNodeUnderPoint(mx, my);
+            if(clickedNode) {
+                // 阻止可能的冒泡，防止双击时误触发两次单击逻辑（但已经发生过，不过可以清除pending并打开模态框）
+                clearPendingEdge();
+                openNodeModal(clickedNode);
+            }
+        }
+
+        function getMouseCoord(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let mx = (e.clientX - rect.left) * scaleX;
+            let my = (e.clientY - rect.top) * scaleY;
+            mx = Math.min(Math.max(0, mx), canvas.width);
+            my = Math.min(Math.max(0, my), canvas.height);
+            return { mx, my };
+        }
+
+        // 全局清除pending (按ESC)
+        window.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape') {
+                if(modalOverlay.classList.contains('active')) closeModal();
+                else clearPendingEdge();
+            }
+        });
+
+        // 模态框事件绑定
+        saveBtn.addEventListener('click', saveModal);
+        cancelBtn.addEventListener('click', closeModal);
+        deleteBtn.addEventListener('click', deleteCurrentItem);
+        closeModalBtn.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if(e.target === modalOverlay) closeModal();
+        });
+
+        // 初始化画布事件
+        canvas.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('dblclick', onDoubleClick);
+        
+        // 初始示例节点
+        addNodeAt(200, 200, '起始节点', '这是第一个节点');
+        addNodeAt(500, 300, '目标节点', '可以连接');
+        addEdge(1, 2, '示例边');
+        
+        drawCanvas();
+        updateStatus('编辑器已启动 — 单击节点选为起点，单击另一节点加边；双击节点编辑；单击边查看注释');
+    })();
+</script>
+</body>
+</html>
