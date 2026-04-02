@@ -1,34 +1,33 @@
-/* ========== DAG 编辑器专用样式 ========== */
-.dag-editor * {
-    user-select: none;
-}
+/* operation.html 专用样式 - 全屏 DAG 编辑器 */
 
-.dag-editor {
-    background: #f0f2f5;
-    border-radius: 28px;
-    padding: 20px;
-    margin: 20px 0;
-}
-
-.dag-container {
+/* 全屏编辑器布局覆盖 */
+.operation-main {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    padding: 20px !important;
+    margin: 0 !important;
+}
+
+.dag-full-editor {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 500px;
     background: white;
-    border-radius: 28px;
-    box-shadow: 0 12px 28px rgba(0,0,0,0.1);
-    padding: 20px;
-}
-
-.canvas-area {
-    background: #ffffff;
     border-radius: 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    overflow-x: auto;
-    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
 }
 
-#dagCanvas {
+.dag-full-editor .canvas-area {
+    flex: 1;
+    background: #ffffff;
+    overflow: auto;
+    position: relative;
+}
+
+.dag-full-editor canvas {
     display: block;
     background: #fefefe;
     cursor: crosshair;
@@ -36,9 +35,11 @@
         linear-gradient(to right, #e9ecef 1px, transparent 1px),
         linear-gradient(to bottom, #e9ecef 1px, transparent 1px);
     background-size: 20px 20px;
+    width: 100%;
+    height: 100%;
 }
 
-.info-bar {
+.dag-full-editor .info-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -47,11 +48,12 @@
     font-size: 0.8rem;
     color: #334155;
     background: #f8fafc;
-    border-radius: 40px;
     padding: 8px 20px;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
 }
 
-.status {
+.dag-full-editor .status {
     background: #eef2ff;
     border-radius: 20px;
     padding: 4px 12px;
@@ -59,7 +61,20 @@
     color: #1e40af;
 }
 
-/* 模态框样式 */
+.dag-full-editor button {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 30px;
+    padding: 4px 14px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.dag-full-editor button:hover {
+    background: #e2e8f0;
+}
+
+/* 模态框样式（仅 operation 页面使用） */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -171,9 +186,6 @@
     padding: 6px 16px;
     border-radius: 40px;
     font-weight: 500;
-    background: #f1f5f9;
-    border: 1px solid #cbd5e1;
-    cursor: pointer;
 }
 
 .btn-save {
@@ -198,4 +210,15 @@
 
 .btn-cancel {
     background: #f1f5f9;
+}
+
+/* 响应式微调 */
+@media (max-width: 768px) {
+    .dag-full-editor .info-bar {
+        font-size: 0.7rem;
+        padding: 6px 12px;
+    }
+    .modal {
+        width: 280px;
+    }
 }
