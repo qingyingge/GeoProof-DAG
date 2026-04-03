@@ -31,7 +31,7 @@
 .dag-full-editor canvas {
     display: block;
     background: #fefefe;
-    cursor: crosshair;
+    cursor: default;
     background-image: 
         linear-gradient(to right, #e9ecef 1px, transparent 1px),
         linear-gradient(to bottom, #e9ecef 1px, transparent 1px);
