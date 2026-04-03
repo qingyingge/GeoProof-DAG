@@ -32,12 +32,21 @@
             <h1>支持页面已移除</h1>
             <p>支持页面内容已被移除。如需联系，请在仓库中查看贡献者信息或在 Issue 中提交问题。</p>
             <p><a href="index.html" class="btn btn-primary"><i class="fas fa-home"></i> 返回主页</a></p>
+
+            <!-- 简单支持表单（避免脚本因缺失元素抛错） -->
+            <form id="supportForm" class="support-form" aria-label="支持表单">
+                <label for="supportMessage">反馈</label>
+                <textarea id="supportMessage" name="message" placeholder="在此输入您的反馈..." required></textarea>
+                <button type="submit" class="btn btn-primary">提交</button>
+                <div id="formFeedback" class="feedback" aria-live="polite"></div>
+            </form>
+
         </section>
     </main>
 
     <footer class="footer">
         <div class="footer-content">
-            <p>&copy; 2025 GeoProof-DAG | 开发者: 1 人 · 开源在 GitHub</p>
+            <p>&copy; 2025 GeoProof-DAG | 开发者：1 人 · 开源于 GitHub</p>
             <div class="social-links">
                 <a href="#"><i class="fab fa-github"></i></a>
             </div>
