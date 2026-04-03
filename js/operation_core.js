@@ -46,10 +46,17 @@
             const newWidth = rect.width;
             const newHeight = rect.height;
             if (canvasWidth !== newWidth || canvasHeight !== newHeight) {
-                canvasWidth = newWidth;
-                canvasHeight = newHeight;
-                canvas.width = canvasWidth;
-                canvas.height = canvasHeight;
+                // 支持 HiDPI：使用 devicePixelRatio 设置 backing store
+                const dpr = window.devicePixelRatio || 1;
+                canvasWidth = newWidth;   // CSS 像素宽
+                canvasHeight = newHeight; // CSS 像素高
+                canvas.width = Math.round(canvasWidth * dpr);
+                canvas.height = Math.round(canvasHeight * dpr);
+                canvas.style.width = canvasWidth + 'px';
+                canvas.style.height = canvasHeight + 'px';
+                if(ctx && typeof ctx.setTransform === 'function') {
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                }
                 nodes.forEach(node => {
                     node.x = Math.min(Math.max(0, node.x), canvasWidth - node.width);
                     node.y = Math.min(Math.max(0, node.y), canvasHeight - node.height);

@@ -124,29 +124,70 @@
 
     function deleteCurrentItem() {
         if(!currentSelectedElement) return;
+        // 使用自定义确认框替代阻塞的 confirm()
         if(currentSelectedElement.type === 'node') {
             const node = currentSelectedElement.data;
-            if(confirm(`确定要删除节点“${node.text}”及其所有关联边吗？`)) {
-                OperationCore.deleteNodeById(node.id);
-                closeModal();
-            }
+            showConfirm(`确定要删除节点“${node.text}”及其所有关联边吗？`).then(ok => {
+                if(ok) {
+                    OperationCore.deleteNodeById(node.id);
+                    closeModal();
+                }
+            });
         } else if(currentSelectedElement.type === 'edge') {
             const edge = currentSelectedElement.data;
-            if(confirm('确定要删除这条边吗？')) {
-                OperationCore.deleteEdgeById(edge.id);
-                closeModal();
-            }
+            showConfirm('确定要删除这条边吗？').then(ok => {
+                if(ok) {
+                    OperationCore.deleteEdgeById(edge.id);
+                    closeModal();
+                }
+            });
         }
+    }
+
+    // 简单的自定义确认模态，返回 Promise
+    function showConfirm(message) {
+        return new Promise(resolve => {
+            let confirmEl = document.getElementById('confirmModal');
+            if(!confirmEl) {
+                confirmEl = document.createElement('div');
+                confirmEl.id = 'confirmModal';
+                confirmEl.className = 'modal-overlay';
+                confirmEl.innerHTML = `
+                    <div class="modal">
+                        <div class="modal-header"><h3>确认</h3></div>
+                        <div class="modal-body"><p id="confirmText"></p></div>
+                        <div class="modal-footer">
+                            <button id="confirmNo" class="btn-cancel">取消</button>
+                            <button id="confirmYes" class="btn-save">确定</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(confirmEl);
+            }
+            const textEl = document.getElementById('confirmText');
+            const yesBtn = document.getElementById('confirmYes');
+            const noBtn = document.getElementById('confirmNo');
+            textEl.innerText = message;
+            confirmEl.classList.add('active');
+            function cleanup() {
+                confirmEl.classList.remove('active');
+                yesBtn.removeEventListener('click', onYes);
+                noBtn.removeEventListener('click', onNo);
+            }
+            function onYes() { cleanup(); resolve(true); }
+            function onNo() { cleanup(); resolve(false); }
+            yesBtn.addEventListener('click', onYes);
+            noBtn.addEventListener('click', onNo);
+        });
     }
 
     function getMouseCoord(e) {
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let mx = (e.clientX - rect.left) * scaleX;
-        let my = (e.clientY - rect.top) * scaleY;
-        mx = Math.min(Math.max(0, mx), canvas.width);
-        my = Math.min(Math.max(0, my), canvas.height);
+        // 返回 CSS 像素坐标，与 core 的 canvasWidth/canvasHeight 保持一致
+        let mx = e.clientX - rect.left;
+        let my = e.clientY - rect.top;
+        mx = Math.min(Math.max(0, mx), canvas.clientWidth);
+        my = Math.min(Math.max(0, my), canvas.clientHeight);
         return { mx, my };
     }
 
@@ -214,11 +255,11 @@
             dragStarted = true;
             if(OperationCore.getPendingSourceNode()) OperationCore.clearPendingSource();
         }
-        if(dragState.moved && dragState.node) {
+            if(dragState.moved && dragState.node) {
             let newX = mx - dragState.offsetX;
             let newY = my - dragState.offsetY;
-            newX = Math.min(Math.max(0, newX), canvas.width - dragState.node.width);
-            newY = Math.min(Math.max(0, newY), canvas.height - dragState.node.height);
+            newX = Math.min(Math.max(0, newX), canvas.clientWidth - dragState.node.width);
+            newY = Math.min(Math.max(0, newY), canvas.clientHeight - dragState.node.height);
             dragState.node.x = newX;
             dragState.node.y = newY;
             OperationCore.drawCanvas();
@@ -236,7 +277,7 @@
             return;
         }
         const rect = canvas.getBoundingClientRect();
-        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+            if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
             dragState.active = false;
             dragState.node = null;
             dragState.moved = false;
