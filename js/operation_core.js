@@ -22,6 +22,8 @@
         // 连线预览与连线起点（只保存 id）
         let pendingSourceNodeId = null;
         let previewPoint = null; // {x, y} in canvas coords
+        // 视图（世界坐标与屏幕的变换）
+        let view = { offsetX: 0, offsetY: 0, scale: 1 };
 
         function updateStatus(msg, isError = false) {
             if(statusTimeout) clearTimeout(statusTimeout);
@@ -55,7 +57,8 @@
                 canvas.style.width = canvasWidth + 'px';
                 canvas.style.height = canvasHeight + 'px';
                 if(ctx && typeof ctx.setTransform === 'function') {
-                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    // 根据当前视图设置 transform（backing store 已是 dpr 缩放）
+                    ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.offsetX, dpr * view.offsetY);
                 }
                 nodes.forEach(node => {
                     node.x = Math.min(Math.max(0, node.x), canvasWidth - node.width);
@@ -64,6 +67,44 @@
                 drawCanvas();
             }
         }
+
+        // 视图变换接口
+        function screenToWorld(sx, sy) {
+            // sx/sy 为 CSS 像素（相对于 canvas 显示大小）
+            return { x: (sx - view.offsetX) / view.scale, y: (sy - view.offsetY) / view.scale };
+        }
+
+        function worldToScreen(wx, wy) {
+            return { x: wx * view.scale + view.offsetX, y: wy * view.scale + view.offsetY };
+        }
+
+        function panBy(dx, dy) {
+            view.offsetX += dx;
+            view.offsetY += dy;
+            if(ctx && typeof ctx.setTransform === 'function') {
+                const dpr = window.devicePixelRatio || 1;
+                ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.offsetX, dpr * view.offsetY);
+            }
+            drawCanvas();
+        }
+
+        function zoomAt(screenX, screenY, factor) {
+            // 将屏幕点保持在同一世界坐标位置
+            const before = screenToWorld(screenX, screenY);
+            view.scale = Math.max(0.1, Math.min(4, view.scale * factor));
+            const afterScr = worldToScreen(before.x, before.y);
+            // 调整 offset 使得 before 世界点仍位于 screenX,screenY
+            view.offsetX += (screenX - afterScr.x);
+            view.offsetY += (screenY - afterScr.y);
+            if(ctx && typeof ctx.setTransform === 'function') {
+                const dpr = window.devicePixelRatio || 1;
+                ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.offsetX, dpr * view.offsetY);
+            }
+            drawCanvas();
+        }
+
+        function getView() { return { ...view }; }
+        function setView(v) { view.offsetX = v.offsetX || 0; view.offsetY = v.offsetY || 0; view.scale = v.scale || 1; if(ctx && typeof ctx.setTransform === 'function') { const dpr = window.devicePixelRatio || 1; ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.offsetX, dpr * view.offsetY); } drawCanvas(); }
 
         // 环检测
         function wouldCreateCycle(fromId, toId) {
@@ -360,7 +401,8 @@
                 nodes: JSON.parse(JSON.stringify(nodes)),
                 edges: JSON.parse(JSON.stringify(edges)),
                 nextNodeId,
-                nextEdgeId
+                nextEdgeId,
+                view: { ...view }
             };
         }
 
@@ -382,6 +424,16 @@
                 edges = e.map(x => ({ id: x.id, fromId: x.fromId, toId: x.toId, text: x.text || '' }));
                 nextNodeId = Number(state.nextNodeId) || (nodes.reduce((m, v) => Math.max(m, v.id), 0) + 1);
                 nextEdgeId = Number(state.nextEdgeId) || (edges.reduce((m, v) => Math.max(m, v.id), 0) + 1);
+                // 导入视图（可选）
+                if(state.view && typeof state.view === 'object') {
+                    view.offsetX = Number(state.view.offsetX) || 0;
+                    view.offsetY = Number(state.view.offsetY) || 0;
+                    view.scale = Number(state.view.scale) || 1;
+                    if(ctx && typeof ctx.setTransform === 'function') {
+                        const dpr = window.devicePixelRatio || 1;
+                        ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.offsetX, dpr * view.offsetY);
+                    }
+                }
                 drawCanvas();
                 updateStatus('已加载 JSON 数据');
                 return true;
@@ -407,6 +459,13 @@
             getEdges,
             exportState,
             importState,
+            // 视图 API
+            screenToWorld,
+            worldToScreen,
+            panBy,
+            zoomAt,
+            getView,
+            setView,
             setPendingSource,
             clearPendingSource,
             getPendingSourceNode,

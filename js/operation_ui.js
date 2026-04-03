@@ -234,12 +234,13 @@
 
     function getMouseCoord(e) {
         const rect = canvas.getBoundingClientRect();
-        // 返回 CSS 像素坐标，与 core 的 canvasWidth/canvasHeight 保持一致
-        let mx = e.clientX - rect.left;
-        let my = e.clientY - rect.top;
-        mx = Math.min(Math.max(0, mx), canvas.clientWidth);
-        my = Math.min(Math.max(0, my), canvas.clientHeight);
-        return { mx, my };
+        // 返回世界坐标（与节点坐标一致）
+        let sx = e.clientX - rect.left;
+        let sy = e.clientY - rect.top;
+        sx = Math.min(Math.max(0, sx), canvas.clientWidth);
+        sy = Math.min(Math.max(0, sy), canvas.clientHeight);
+        const w = OperationCore.screenToWorld(sx, sy);
+        return { mx: w.x, my: w.y, sx, sy };
     }
 
     function determineCursorAt(mx, my) {
@@ -263,22 +264,43 @@
     // 实时光标变化
     canvas.addEventListener('mousemove', (e) => {
         if (!canvas) return;
-        const { mx, my } = getMouseCoord(e);
+        const { mx, my, sx, sy } = getMouseCoord(e);
         const cursor = determineCursorAt(mx, my);
         canvas.style.cursor = cursor;
         // 如果处于连线模式且没有在拖拽，显示预览
         if(!dragState.active && OperationCore.getPendingSourceNode()) {
             OperationCore.setPreviewPoint({ x: mx, y: my });
         }
+        // panning
+        if(panning.active) {
+            const dx = sx - panning.lastSx;
+            const dy = sy - panning.lastSy;
+            panning.lastSx = sx; panning.lastSy = sy;
+            OperationCore.panBy(dx, dy);
+        }
     });
 
     canvas.addEventListener('mouseleave', () => { canvas.style.cursor = 'default'; });
 
+    // panning 状态（支持空格+左键或中键拖动）
+    let panning = { active: false, startSx: 0, startSy: 0, lastSx: 0, lastSy: 0 };
+
     canvas.addEventListener('mousedown', (e) => {
         if(isModalOpen) return;
-        const { mx, my } = getMouseCoord(e);
+        const { mx, my, sx, sy } = getMouseCoord(e);
         mouseDownPos = { x: mx, y: my };
         dragStarted = false;
+        // 判断是否开始 panning：中键（button===1）或按住空格 + 左键
+        const isMiddle = (e.button === 1);
+        const isSpacePan = (e.button === 0 && (e.getModifierState && e.getModifierState('Space')));
+        if(isMiddle || isSpacePan) {
+            panning.active = true;
+            panning.startSx = sx; panning.startSy = sy; panning.lastSx = sx; panning.lastSy = sy;
+            canvas.style.cursor = 'grabbing';
+            e.preventDefault();
+            return;
+        }
+
         dragTargetNode = OperationCore.findNodeUnderPoint(mx, my);
         if(dragTargetNode) {
             dragState.active = true;
@@ -309,8 +331,8 @@
             if(dragState.moved && dragState.node) {
             let newX = mx - dragState.offsetX;
             let newY = my - dragState.offsetY;
-            newX = Math.min(Math.max(0, newX), canvas.clientWidth - dragState.node.width);
-            newY = Math.min(Math.max(0, newY), canvas.clientHeight - dragState.node.height);
+                newX = Math.min(Math.max(-99999, newX), 99999);
+                newY = Math.min(Math.max(-99999, newY), 99999);
             dragState.node.x = newX;
             dragState.node.y = newY;
             OperationCore.drawCanvas();
@@ -319,6 +341,12 @@
 
     window.addEventListener('mouseup', (e) => {
         if(isModalOpen) return;
+        if(panning.active) {
+            panning.active = false;
+            panning.startSx = panning.startSy = panning.lastSx = panning.lastSy = 0;
+            return;
+        }
+
         if(dragState.active && dragState.moved) {
             dragState.active = false;
             dragState.node = null;
@@ -401,6 +429,18 @@
         dragStarted = false;
         dragTargetNode = null;
     });
+
+    // 滚轮缩放（以鼠标位置为中心）
+    canvas.addEventListener('wheel', (e) => {
+        if(!canvas) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const delta = e.deltaY;
+        const factor = Math.exp(-delta * 0.0015); // 缩放因子
+        OperationCore.zoomAt(sx, sy, factor);
+    }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
         if(e.key === 'Escape') {
