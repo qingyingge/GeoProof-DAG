@@ -16,6 +16,57 @@
 
     OperationCore.init(canvas, setStatus);
 
+    // 绑定保存/加载按钮（如果页面中有）
+    const infoBar = document.querySelector('.info-bar');
+    if(infoBar) {
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '保存 JSON';
+        saveBtn.style.marginLeft = '8px';
+        const loadBtn = document.createElement('button');
+        loadBtn.textContent = '加载 JSON';
+        loadBtn.style.marginLeft = '6px';
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json,application/json';
+        fileInput.style.display = 'none';
+        infoBar.appendChild(saveBtn);
+        infoBar.appendChild(loadBtn);
+        infoBar.appendChild(fileInput);
+
+        saveBtn.addEventListener('click', () => {
+            const state = OperationCore.exportState();
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'geo-dag.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setStatus('已保存为 geo-dag.json');
+        });
+
+        loadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const f = e.target.files && e.target.files[0];
+            if(!f) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    const ok = OperationCore.importState(data);
+                    if(ok) setStatus('已加载 JSON');
+                } catch(err) {
+                    setStatus('加载失败：JSON 解析错误', true);
+                }
+            };
+            reader.readAsText(f, 'utf-8');
+            // 清空以便未来可重新选择同一文件
+            fileInput.value = '';
+        });
+    }
+
     // 动态创建模态框（UI 负责）
     function createModal() {
         const modalDiv = document.createElement('div');

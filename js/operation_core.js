@@ -354,6 +354,43 @@
         function getNodes() { return nodes; }
         function getEdges() { return edges; }
 
+        // 导出当前状态（用于保存为 JSON）
+        function exportState() {
+            return {
+                nodes: JSON.parse(JSON.stringify(nodes)),
+                edges: JSON.parse(JSON.stringify(edges)),
+                nextNodeId,
+                nextEdgeId
+            };
+        }
+
+        // 从状态对象导入（替换当前画布数据）
+        function importState(state) {
+            try {
+                if(!state || typeof state !== 'object') throw new Error('无效数据');
+                const n = Array.isArray(state.nodes) ? state.nodes : [];
+                const e = Array.isArray(state.edges) ? state.edges : [];
+                nodes = n.map(x => ({
+                    id: x.id,
+                    text: x.text || `节点${x.id}`,
+                    comment: x.comment || '',
+                    x: Number(x.x) || 0,
+                    y: Number(x.y) || 0,
+                    width: Number(x.width) || NODE_W,
+                    height: Number(x.height) || NODE_H
+                }));
+                edges = e.map(x => ({ id: x.id, fromId: x.fromId, toId: x.toId, text: x.text || '' }));
+                nextNodeId = Number(state.nextNodeId) || (nodes.reduce((m, v) => Math.max(m, v.id), 0) + 1);
+                nextEdgeId = Number(state.nextEdgeId) || (edges.reduce((m, v) => Math.max(m, v.id), 0) + 1);
+                drawCanvas();
+                updateStatus('已加载 JSON 数据');
+                return true;
+            } catch(err) {
+                updateStatus('加载失败：无效的 JSON', true);
+                return false;
+            }
+        }
+
         return {
             init,
             resizeCanvas,
@@ -368,6 +405,8 @@
             findEdgeUnderPoint,
             getNodes,
             getEdges,
+            exportState,
+            importState,
             setPendingSource,
             clearPendingSource,
             getPendingSourceNode,
