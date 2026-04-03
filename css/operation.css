@@ -5,7 +5,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 20px !important;
+    padding: 0 !important;
     margin: 0 !important;
 }
 
@@ -13,15 +13,16 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 500px;
+    min-height: 0;
     background: white;
-    border-radius: 20px;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    box-shadow: 0;
 }
 
 .dag-full-editor .canvas-area {
     flex: 1;
+    min-height: 0;
     background: #ffffff;
     overflow: auto;
     position: relative;
@@ -30,13 +31,14 @@
 .dag-full-editor canvas {
     display: block;
     background: #fefefe;
-    cursor: crosshair;
+    cursor: default;
     background-image: 
         linear-gradient(to right, #e9ecef 1px, transparent 1px),
         linear-gradient(to bottom, #e9ecef 1px, transparent 1px);
     background-size: 20px 20px;
     width: 100%;
     height: 100%;
+    object-fit: contain; /* 防止在容器比例变化时图像拉伸 */
 }
 
 .dag-full-editor .info-bar {
@@ -45,10 +47,10 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    font-size: 0.8rem;
+    font-size: 0.85rem; /* 略微放大以提高可读性 */
     color: #334155;
     background: #f8fafc;
-    padding: 8px 20px;
+    padding: 8px 16px; /* 略微减少左右内边距 */
     border-top: 1px solid #e2e8f0;
     flex-shrink: 0;
 }
@@ -101,7 +103,7 @@
     background: white;
     width: 320px;
     max-width: 90%;
-    border-radius: 28px;
+    border-radius: 20px; /* 与其它组件圆角统一为 20px */
     box-shadow: 0 20px 35px rgba(0,0,0,0.2);
     overflow: hidden;
     animation: fadeInUp 0.2s ease;
@@ -184,7 +186,7 @@
 
 .modal-footer button {
     padding: 6px 16px;
-    border-radius: 40px;
+    border-radius: 20px; /* 统一圆角 */
     font-weight: 500;
 }
 
