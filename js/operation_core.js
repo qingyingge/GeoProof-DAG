@@ -9,14 +9,14 @@
 
         // 形状类型常量
         const SHAPE_TYPES = {
-            RECTANGLE: 'rectangle',      // 矩形
-            PARALLELOGRAM: 'parallelogram', // 平行四边形
-            STADIUM: 'stadium',           // 体育场形
-            CUSTOM_PROCESS: 'custom_process' // 自定义过程（流程图）
+            PROCESS: 'process',             // 过程（体育场形）
+            DRAWING: 'drawing',             // 作图（平行四边形）
+            KNOWN: 'known',                 // 已知条件（矩形）
+            CONCLUSION: 'conclusion'        // 结论（自定义过程）
         };
         
-        // 当前选中的形状类型（默认为体育场形）
-        let currentShapeType = SHAPE_TYPES.STADIUM;
+        // 当前选中的形状类型（默认为过程）
+        let currentShapeType = SHAPE_TYPES.PROCESS;
 
         const NODE_W = 110;
         const NODE_H = 52;
@@ -451,16 +451,16 @@
                 const strokeColor = '#334155';
                 
                 switch(shapeType) {
-                    case SHAPE_TYPES.RECTANGLE:
+                    case SHAPE_TYPES.KNOWN:
                         drawRectangle(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
                         break;
-                    case SHAPE_TYPES.PARALLELOGRAM:
+                    case SHAPE_TYPES.DRAWING:
                         drawParallelogram(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
                         break;
-                    case SHAPE_TYPES.CUSTOM_PROCESS:
+                    case SHAPE_TYPES.CONCLUSION:
                         drawCustomProcess(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
                         break;
-                    case SHAPE_TYPES.STADIUM:
+                    case SHAPE_TYPES.PROCESS:
                     default:
                         drawStadium(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
                         break;
@@ -545,7 +545,7 @@
                     y: Number(x.y) || 0,
                     width: Number(x.width) || NODE_W,
                     height: Number(x.height) || NODE_H,
-                    shapeType: x.shapeType || SHAPE_TYPES.STADIUM
+                    shapeType: x.shapeType || SHAPE_TYPES.PROCESS
                 }));
                 edges = e.map(x => ({ id: x.id, fromId: x.fromId, toId: x.toId, text: x.text || '' }));
                 nextNodeId = Number(state.nextNodeId) || (nodes.reduce((m, v) => Math.max(m, v.id), 0) + 1);

@@ -83,10 +83,10 @@
                         <div class="field">
                             <label>🔷 节点形状</label>
                             <select id="nodeShapeSelect">
-                                <option value="stadium">体育场形（开始/结束）</option>
-                                <option value="rectangle">矩形（处理步骤）</option>
-                                <option value="parallelogram">平行四边形（输入/输出）</option>
-                                <option value="custom_process">自定义过程（预定义过程）</option>
+                                <option value="process">过程</option>
+                                <option value="drawing">作图</option>
+                                <option value="known">已知条件</option>
+                                <option value="conclusion">结论</option>
                             </select>
                         </div>
                         <div class="field">
@@ -150,7 +150,7 @@
         commentInput.value = node.comment || '';
         
         // 设置当前形状为选中状态
-        const currentShape = node.shapeType || 'stadium';
+        const currentShape = node.shapeType || 'process';
         nodeShapeSelect.value = currentShape;
 
         modalOverlay.classList.add('active');
