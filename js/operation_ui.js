@@ -81,13 +81,22 @@
                 <div class="modal-body">
                     <div id="nodeSpecificFields" style="display: none;">
                         <div class="field">
+                            <label>🔷 节点形状</label>
+                            <select id="nodeShapeSelect">
+                                <option value="stadium">体育场形（开始/结束）</option>
+                                <option value="rectangle">矩形（处理步骤）</option>
+                                <option value="parallelogram">平行四边形（输入/输出）</option>
+                                <option value="custom_process">自定义过程（预定义过程）</option>
+                            </select>
+                        </div>
+                        <div class="field">
                             <label>📝 内容 (节点文字)</label>
                             <input type="text" id="nodeContentInput" placeholder="节点显示文本">
                         </div>
                     </div>
                     <div class="field">
                         <label>💬 注释</label>
-                        <textarea id="commentInput" rows="3" placeholder="添加注释..."></textarea>
+                        <textarea id="commentInput" rows="4" placeholder="节点注释内容..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -101,7 +110,7 @@
         return modalDiv;
     }
 
-    let modalOverlay, modalTitle, nodeSpecificDiv, nodeContentInput, commentInput, saveBtn, cancelBtn, deleteBtn, closeModalBtn;
+    let modalOverlay, modalTitle, nodeSpecificDiv, nodeContentInput, commentInput, nodeShapeSelect, saveBtn, cancelBtn, deleteBtn, closeModalBtn;
 
     function initModal() {
         modalOverlay = document.getElementById('detailModal');
@@ -110,6 +119,7 @@
         nodeSpecificDiv = document.getElementById('nodeSpecificFields');
         nodeContentInput = document.getElementById('nodeContentInput');
         commentInput = document.getElementById('commentInput');
+        nodeShapeSelect = document.getElementById('nodeShapeSelect');
         saveBtn = document.getElementById('saveModalBtn');
         cancelBtn = document.getElementById('cancelModalBtn');
         deleteBtn = document.getElementById('deleteItemBtn');
@@ -135,7 +145,14 @@
         modalTitle.innerText = `📌 节点 #${node.id}`;
         nodeSpecificDiv.style.display = 'flex';
         nodeContentInput.value = node.text;
+        
+        // 显示节点注释（如果有）
         commentInput.value = node.comment || '';
+        
+        // 设置当前形状为选中状态
+        const currentShape = node.shapeType || 'stadium';
+        nodeShapeSelect.value = currentShape;
+
         modalOverlay.classList.add('active');
     }
 
@@ -164,7 +181,11 @@
             const newText = nodeContentInput.value.trim();
             const newComment = commentInput.value;
             if(newText === '') { setStatus('节点文字不能为空', true); return; }
-            OperationCore.updateNode(node.id, newText, newComment);
+            
+            // 获取选中的形状
+            const newShapeType = nodeShapeSelect.value;
+            
+            OperationCore.updateNode(node.id, newText, newComment, newShapeType);
             closeModal();
         } else if(currentSelectedElement.type === 'edge') {
             const edge = currentSelectedElement.data;
@@ -282,6 +303,11 @@
 
     canvas.addEventListener('mouseleave', () => { canvas.style.cursor = 'default'; });
 
+    // 禁用右键菜单
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+    });
+
     // panning 状态（支持空格+左键或中键拖动）
     let panning = { active: false, startSx: 0, startSy: 0, lastSx: 0, lastSy: 0 };
 
@@ -365,6 +391,26 @@
             return;
         }
 
+        // 右键点击 (button === 2)
+        if(e.button === 2) {
+            const { mx, my } = getMouseCoord(e);
+            const clickedNode = OperationCore.findNodeUnderPoint(mx, my);
+            const clickedEdge = !clickedNode ? OperationCore.findEdgeUnderPoint(mx, my) : null;
+
+            if(clickedNode) {
+                openNodeModal(clickedNode);
+            } else if(clickedEdge) {
+                openEdgeModal(clickedEdge);
+            }
+            // 重置拖拽状态，防止右键打开窗口后节点进入拖拽模式
+            dragState.active = false;
+            dragState.node = null;
+            dragState.moved = false;
+            dragStarted = false;
+            dragTargetNode = null;
+            return;
+        }
+
         const { mx, my } = getMouseCoord(e);
         const clickedNode = OperationCore.findNodeUnderPoint(mx, my);
         const clickedEdge = !clickedNode ? OperationCore.findEdgeUnderPoint(mx, my) : null;
@@ -411,14 +457,15 @@
                     }
                 } else {
                     OperationCore.setPendingSource(targetData.id);
-                    setStatus(`🔗 已选择起点 “${targetData.text}”，请单击目标节点添加边`);
+                    setStatus(`🔗 已选择起点 "${targetData.text}"，请单击目标节点添加边`);
                     canvas.style.cursor = 'crosshair';
                 }
             } else if(targetType === 'edge') {
                 openEdgeModal(targetData);
             } else if(targetType === 'blank') {
                 if(OperationCore.getPendingSourceNode()) OperationCore.clearPendingSource();
-                OperationCore.addNodeAt(mx, my, null, '');
+                const currentShape = OperationCore.getCurrentShapeType();
+                OperationCore.addNodeAt(mx, my, null, '', currentShape);
             }
             clickTimer = null;
         }, 200);
@@ -458,8 +505,9 @@
     // 初始化示例节点
     setTimeout(() => {
         if (canvas && canvas.width > 0 && canvas.height > 0 && OperationCore.getNodes().length === 0) {
-            OperationCore.addNodeAt(canvas.width * 0.3, canvas.height * 0.4, '起始节点', '这是第一个节点');
-            OperationCore.addNodeAt(canvas.width * 0.7, canvas.height * 0.6, '目标节点', '可以连接');
+            const defaultShape = OperationCore.getCurrentShapeType();
+            OperationCore.addNodeAt(canvas.width * 0.3, canvas.height * 0.4, '起始节点', '这是第一个节点', defaultShape);
+            OperationCore.addNodeAt(canvas.width * 0.7, canvas.height * 0.6, '目标节点', '可以连接', defaultShape);
             OperationCore.addEdge(1, 2, '示例边');
             OperationCore.drawCanvas();
         }

@@ -32,7 +32,7 @@
     display: block;
     background: #fefefe;
     cursor: default;
-    background-image: 
+    background-image:
         linear-gradient(to right, #e9ecef 1px, transparent 1px),
         linear-gradient(to bottom, #e9ecef 1px, transparent 1px);
     background-size: 20px 20px;
@@ -212,6 +212,28 @@
 
 .btn-cancel {
     background: #f1f5f9;
+}
+
+/* 节点形状下拉框样式 */
+#nodeShapeSelect {
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    background: white;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+#nodeShapeSelect:hover {
+    border-color: #94a3b8;
+}
+
+#nodeShapeSelect:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* 响应式微调 */
