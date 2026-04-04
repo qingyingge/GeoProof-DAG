@@ -331,6 +331,7 @@ body {
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    max-width: 800px;
 }
 
 .faq-list details {
@@ -357,12 +358,15 @@ body {
     list-style: none;
     position: relative;
     padding-left: 1.5rem;
+    display: block;
+    width: 100%;
 }
 
 .faq-list summary::before {
     content: '▸';
     position: absolute;
     left: 0;
+    top: 0;
     transition: transform 0.2s;
 }
 
@@ -374,6 +378,8 @@ body {
     margin-top: 0.75rem;
     color: #475569;
     line-height: 1.7;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .support-container {
