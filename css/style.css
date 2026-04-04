@@ -325,6 +325,57 @@ body {
     font-size: 0.9rem;
 }
 
+/* FAQ 样式 */
+.faq-list {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.faq-list details {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.faq-list details:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.faq-list details:hover {
+    background: #f8fafc;
+}
+
+.faq-list summary {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1rem;
+    list-style: none;
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.faq-list summary::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    transition: transform 0.2s;
+}
+
+.faq-list details[open] summary::before {
+    content: '▾';
+}
+
+.faq-list details p {
+    margin-top: 0.75rem;
+    color: #475569;
+    line-height: 1.7;
+}
+
 .support-container {
     display: flex;
     gap: 3rem;
