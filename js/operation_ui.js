@@ -25,12 +25,16 @@
         const loadBtn = document.createElement('button');
         loadBtn.textContent = '加载 JSON';
         loadBtn.style.marginLeft = '6px';
+        const exportImgBtn = document.createElement('button');
+        exportImgBtn.textContent = '导出图片';
+        exportImgBtn.style.marginLeft = '6px';
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = '.json,application/json';
         fileInput.style.display = 'none';
         infoBar.appendChild(saveBtn);
         infoBar.appendChild(loadBtn);
+        infoBar.appendChild(exportImgBtn);
         infoBar.appendChild(fileInput);
 
         saveBtn.addEventListener('click', () => {
@@ -45,6 +49,25 @@
             a.remove();
             URL.revokeObjectURL(url);
             setStatus('已保存为 geo-dag.json');
+        });
+
+        exportImgBtn.addEventListener('click', () => {
+            const sourceCanvas = canvas;
+            sourceCanvas.toBlob((blob) => {
+                if(!blob) {
+                    setStatus('导出图片失败', true);
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'geo-dag.png';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                setStatus('已导出为 geo-dag.png');
+            }, 'image/png');
         });
 
         loadBtn.addEventListener('click', () => fileInput.click());
