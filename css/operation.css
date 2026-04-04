@@ -246,3 +246,10 @@
         width: 280px;
     }
 }
+
+#nodeSpecificFields {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    /* 可选，与 modal-body 的间距保持一致 */
+}
