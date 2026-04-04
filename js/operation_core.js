@@ -7,6 +7,17 @@
         let nextNodeId = 1;
         let nextEdgeId = 1;
 
+        // 形状类型常量
+        const SHAPE_TYPES = {
+            RECTANGLE: 'rectangle',      // 矩形
+            PARALLELOGRAM: 'parallelogram', // 平行四边形
+            STADIUM: 'stadium',           // 体育场形
+            CUSTOM_PROCESS: 'custom_process' // 自定义过程（流程图）
+        };
+        
+        // 当前选中的形状类型（默认为体育场形）
+        let currentShapeType = SHAPE_TYPES.STADIUM;
+
         const NODE_W = 110;
         const NODE_H = 52;
 
@@ -147,7 +158,7 @@
             return true;
         }
 
-        function addNodeAt(x, y, text = null, comment = '') {
+        function addNodeAt(x, y, text = null, comment = '', shapeType = null) {
             let nx = x - NODE_W/2;
             let ny = y - NODE_H/2;
             nx = Math.min(Math.max(0, nx), canvasWidth - NODE_W);
@@ -160,11 +171,12 @@
                 x: nx,
                 y: ny,
                 width: NODE_W,
-                height: NODE_H
+                height: NODE_H,
+                shapeType: shapeType || currentShapeType // 使用传入的形状类型或当前选中的类型
             };
             nodes.push(newNode);
             drawCanvas();
-            updateStatus(`➕ 添加节点 “${newNode.text}”`);
+            updateStatus(`➕ 添加节点 "${newNode.text}"`);
             return newNode;
         }
 
@@ -188,11 +200,14 @@
             return true;
         }
 
-        function updateNode(nodeId, newText, newComment) {
+        function updateNode(nodeId, newText, newComment, newShapeType = null) {
             const node = nodes.find(n => n.id === nodeId);
             if(node) {
                 node.text = newText.trim() || `节点${node.id}`;
                 node.comment = newComment;
+                if(newShapeType && Object.values(SHAPE_TYPES).includes(newShapeType)) {
+                    node.shapeType = newShapeType;
+                }
                 drawCanvas();
                 updateStatus(`💾 节点已更新`);
             }
@@ -219,6 +234,91 @@
             ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
             ctx.lineWidth = highlight ? 3 : 2;
             ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `500 14px "Segoe UI", system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let displayText = text;
+            if(ctx.measureText(displayText).width > w - 20) {
+                while(ctx.measureText(displayText + '...').width > w - 20 && displayText.length > 0) displayText = displayText.slice(0, -1);
+                displayText += '...';
+            }
+            ctx.fillText(displayText, x + w/2, y + h/2);
+        }
+
+        function drawRectangle(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+            ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
+            ctx.lineWidth = highlight ? 3 : 2;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `500 14px "Segoe UI", system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let displayText = text;
+            if(ctx.measureText(displayText).width > w - 20) {
+                while(ctx.measureText(displayText + '...').width > w - 20 && displayText.length > 0) displayText = displayText.slice(0, -1);
+                displayText += '...';
+            }
+            ctx.fillText(displayText, x + w/2, y + h/2);
+        }
+
+        function drawParallelogram(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
+            const skew = 15; // 偏移量
+            ctx.beginPath();
+            ctx.moveTo(x + skew, y);
+            ctx.lineTo(x + w, y);
+            ctx.lineTo(x + w - skew, y + h);
+            ctx.lineTo(x, y + h);
+            ctx.closePath();
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+            ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
+            ctx.lineWidth = highlight ? 3 : 2;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `500 14px "Segoe UI", system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let displayText = text;
+            if(ctx.measureText(displayText).width > w - 20) {
+                while(ctx.measureText(displayText + '...').width > w - 20 && displayText.length > 0) displayText = displayText.slice(0, -1);
+                displayText += '...';
+            }
+            ctx.fillText(displayText, x + w/2, y + h/2);
+        }
+
+        function drawCustomProcess(ctx, x, y, w, h, fillColor, strokeColor, text, highlight=false) {
+            const sideWidth = 12; // 两侧竖线的宽度
+            ctx.beginPath();
+            // 外矩形
+            ctx.rect(x, y, w, h);
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+            ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
+            ctx.lineWidth = highlight ? 3 : 2;
+            ctx.stroke();
+            
+            // 左侧竖线
+            ctx.beginPath();
+            ctx.moveTo(x + sideWidth, y);
+            ctx.lineTo(x + sideWidth, y + h);
+            ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
+            ctx.lineWidth = highlight ? 3 : 2;
+            ctx.stroke();
+            
+            // 右侧竖线
+            ctx.beginPath();
+            ctx.moveTo(x + w - sideWidth, y);
+            ctx.lineTo(x + w - sideWidth, y + h);
+            ctx.strokeStyle = highlight ? '#f59e0b' : strokeColor;
+            ctx.lineWidth = highlight ? 3 : 2;
+            ctx.stroke();
+            
+            // 绘制文字
             ctx.fillStyle = '#0f172a';
             ctx.font = `500 14px "Segoe UI", system-ui`;
             ctx.textAlign = 'center';
@@ -346,7 +446,25 @@
             edges.forEach(edge => drawArrowEdge(edge));
             nodes.forEach(node => {
                 const isHighlight = (pendingSourceNodeId && pendingSourceNodeId === node.id);
-                drawStadium(ctx, node.x, node.y, node.width, node.height, '#f8fafc', '#334155', node.text, isHighlight);
+                const shapeType = node.shapeType || SHAPE_TYPES.STADIUM;
+                const fillColor = '#f8fafc';
+                const strokeColor = '#334155';
+                
+                switch(shapeType) {
+                    case SHAPE_TYPES.RECTANGLE:
+                        drawRectangle(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
+                        break;
+                    case SHAPE_TYPES.PARALLELOGRAM:
+                        drawParallelogram(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
+                        break;
+                    case SHAPE_TYPES.CUSTOM_PROCESS:
+                        drawCustomProcess(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
+                        break;
+                    case SHAPE_TYPES.STADIUM:
+                    default:
+                        drawStadium(ctx, node.x, node.y, node.width, node.height, fillColor, strokeColor, node.text, isHighlight);
+                        break;
+                }
             });
             // 画连线预览（如果有）
             if(pendingSourceNodeId && previewPoint) {
@@ -394,6 +512,13 @@
 
         function getNodes() { return nodes; }
         function getEdges() { return edges; }
+        function getCurrentShapeType() { return currentShapeType; }
+        function setCurrentShapeType(type) { 
+            if(Object.values(SHAPE_TYPES).includes(type)) {
+                currentShapeType = type;
+            }
+        }
+        function getShapeTypes() { return SHAPE_TYPES; }
 
         // 导出当前状态（用于保存为 JSON）
         function exportState() {
@@ -419,7 +544,8 @@
                     x: Number(x.x) || 0,
                     y: Number(x.y) || 0,
                     width: Number(x.width) || NODE_W,
-                    height: Number(x.height) || NODE_H
+                    height: Number(x.height) || NODE_H,
+                    shapeType: x.shapeType || SHAPE_TYPES.STADIUM
                 }));
                 edges = e.map(x => ({ id: x.id, fromId: x.fromId, toId: x.toId, text: x.text || '' }));
                 nextNodeId = Number(state.nextNodeId) || (nodes.reduce((m, v) => Math.max(m, v.id), 0) + 1);
@@ -469,7 +595,11 @@
             setPendingSource,
             clearPendingSource,
             getPendingSourceNode,
-            setPreviewPoint
+            setPreviewPoint,
+            // 形状类型 API
+            getCurrentShapeType,
+            setCurrentShapeType,
+            getShapeTypes
         };
     })();
 
