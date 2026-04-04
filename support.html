@@ -27,20 +27,28 @@
             </div>
         </div>
     </nav>
+
     <main class="support-main">
         <section class="support-section">
-            <h1>支持页面已移除</h1>
-            <p>支持页面内容已被移除。如需联系，请在仓库中查看贡献者信息或在 Issue 中提交问题。</p>
-            <p><a href="index.html" class="btn btn-primary"><i class="fas fa-home"></i> 返回主页</a></p>
+            <h1>🛠️ 技术支持</h1>
+            <p>如果您在使用过程中遇到问题，或有功能建议，欢迎通过以下方式联系我们：</p>
 
-            <!-- 简单支持表单（避免脚本因缺失元素抛错） -->
-            <form id="supportForm" class="support-form" aria-label="支持表单">
-                <label for="supportMessage">反馈</label>
-                <textarea id="supportMessage" name="message" placeholder="在此输入您的反馈..." required></textarea>
-                <button type="submit" class="btn btn-primary">提交</button>
-                <div id="formFeedback" class="feedback" aria-live="polite"></div>
-            </form>
+            <div class="support-links">
+                <a href="https://github.com/qingyingge/GeoProof-DAG/issues/new" target="_blank" rel="noopener noreferrer" class="support-card">
+                    <i class="fas fa-bug"></i>
+                    <h3>报告问题</h3>
+                    <p>在 GitHub Issues 中提交 Bug 报告或功能请求</p>
+                </a>
+                <a href="https://github.com/qingyingge/GeoProof-DAG" target="_blank" rel="noopener noreferrer" class="support-card">
+                    <i class="fab fa-github"></i>
+                    <h3>GitHub 仓库</h3>
+                    <p>查看源代码、贡献代码或查看项目文档</p>
+                </a>
+            </div>
 
+            <p style="margin-top: 2rem;">
+                <a href="index.html" class="btn btn-primary"><i class="fas fa-home"></i> 返回主页</a>
+            </p>
         </section>
     </main>
 
@@ -48,22 +56,11 @@
         <div class="footer-content">
             <p>&copy; 2025 GeoProof-DAG | 开发者：1 人 · 开源于 GitHub</p>
             <div class="social-links">
-                <a href="#"><i class="fab fa-github"></i></a>
+                <a href="https://github.com/qingyingge/GeoProof-DAG" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i></a>
             </div>
         </div>
     </footer>
 
     <script src="js/main.js"></script>
-    <script>
-        // 简单表单提交模拟（实际应发送到后端）
-        document.getElementById('supportForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const feedback = document.getElementById('formFeedback');
-            feedback.textContent = '感谢您的反馈，我们会尽快联系您！';
-            feedback.style.color = '#2ecc71';
-            this.reset();
-            setTimeout(() => { feedback.textContent = ''; }, 3000);
-        });
-    </script>
 </body>
 </html>

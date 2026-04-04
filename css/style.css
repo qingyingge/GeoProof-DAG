@@ -284,6 +284,47 @@ body {
 }
 
 /* 支持页面布局 */
+.support-links {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+}
+
+.support-card {
+    flex: 1;
+    min-width: 250px;
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.support-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.support-card i {
+    font-size: 2.5rem;
+    color: #3498db;
+    margin-bottom: 1rem;
+}
+
+.support-card h3 {
+    margin: 0.5rem 0;
+    color: #2c3e50;
+}
+
+.support-card p {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
 .support-container {
     display: flex;
     gap: 3rem;
