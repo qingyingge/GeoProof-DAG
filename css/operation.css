@@ -1,5 +1,30 @@
 /* operation.html 专用样式 - 全屏 DAG 编辑器 */
 
+/* 操作页面专用 Logo */
+.operation-logo {
+    position: fixed;
+    top: 16px;
+    left: 20px;
+    z-index: 1000;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.operation-logo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* 操作页面隐藏导航和页脚 */
+.operation-body .navbar,
+.operation-body .footer {
+    display: none !important;
+}
+
 /* 全屏编辑器布局覆盖 */
 .operation-main {
     flex: 1;
@@ -26,6 +51,7 @@
     background: #ffffff;
     overflow: auto;
     position: relative;
+    padding-top: 70px; /* 为固定的 Logo 留出空间 */
 }
 
 .dag-full-editor canvas {

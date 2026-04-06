@@ -37,17 +37,28 @@ body {
     font-size: 1.5rem;
     font-weight: bold;
     color: #2c3e50;
+    text-decoration: none;
+    transition: color 0.3s;
 }
 
-.logo-img {
-    height: 40px;
-    width: auto;
+.logo:hover {
+    color: #3498db;
+}
+
+.logo-text {
+    background: linear-gradient(135deg, #3498db, #2c3e50);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 1px;
 }
 
 .nav-menu {
     display: flex;
     list-style: none;
-    gap: 1rem; /* 缩小导航间距，避免宽屏过于分散 */
+    gap: 1rem;
 }
 
 .nav-menu a {
@@ -81,16 +92,16 @@ body {
 /* 按钮 */
 .hero {
     max-width: 1200px;
-    margin: 2.5rem auto; /* 稍微减少上方留白 */
-    padding: 0 1.5rem;
+    margin: 1.5rem auto 0;
+    padding: 0 2rem;
     display: flex;
     align-items: center;
-    gap: 1.5rem; /* 减小左右空隙 */
+    gap: 2rem;
     flex-wrap: wrap;
 }
 .hero-content {
     flex: 1;
-    max-width: 640px; /* 限制内容宽度，避免在宽屏时太散 */
+    min-width: 300px;
 }
 .btn-primary {
     background-color: #3498db;
@@ -121,36 +132,16 @@ body {
     color: white;
 }
 
-/* Hero 区域 */
-.hero {
-    max-width: 1200px;
-    margin: 3rem auto;
-    padding: 0 2rem;
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-    flex-wrap: wrap;
-}
-
-.hero-content {
-    flex: 1;
-}
-
 .hero-content h1 {
     font-size: 2.8rem;
     color: #2c3e50;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .hero-content p {
     font-size: 1.2rem;
     color: #7f8c8d;
-    margin-bottom: 2rem;
-}
-
-.hero-image {
-    flex: 1;
-    text-align: center;
+    margin-bottom: 1.5rem;
 }
 
 .hero-image img {
@@ -234,7 +225,6 @@ body {
 
 /* 操作页面容器 */
 .operation-main, .help-main, .support-main {
-    /* max-width: 1200px; */
     margin: 2rem auto;
     padding: 0 2rem;
 }
@@ -518,7 +508,232 @@ body {
     }
 }
 
-/* 让 body 作为 flex 列容器，占满全屏（合并重复声明） */
+/* 通用 Section 样式 */
+.section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+}
+
+.section h2 {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section h2 i {
+    color: #3498db;
+}
+
+.section > p {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    margin-bottom: 2rem;
+}
+
+/* 帮助 Section */
+.help-section {
+    background-color: #fff;
+}
+
+.faq-list {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    max-width: 800px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.faq-list details {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.faq-list details:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.faq-list details:hover {
+    background: #f8fafc;
+}
+
+.faq-list summary {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1rem;
+    list-style: none;
+    position: relative;
+    padding-left: 1.5rem;
+    display: block;
+    width: 100%;
+}
+
+.faq-list summary::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: transform 0.2s;
+}
+
+.faq-list details[open] summary::before {
+    content: '▾';
+}
+
+.faq-list details p {
+    margin-top: 0.75rem;
+    color: #475569;
+    line-height: 1.7;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* 支持 Section */
+.support-section {
+    background-color: #f9fafc;
+}
+
+.support-links {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+}
+
+.support-card {
+    flex: 1;
+    min-width: 250px;
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.support-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.support-card i {
+    font-size: 2.5rem;
+    color: #3498db;
+    margin-bottom: 1rem;
+}
+
+.support-card h3 {
+    margin: 0.5rem 0;
+    color: #2c3e50;
+}
+
+.support-card p {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+/* 捐赠 Section */
+.donate-section {
+    background-color: #fff;
+    text-align: center;
+}
+
+.donate-section > p {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+}
+
+.donate-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.donate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, #ffdd00, #ffcc00);
+    color: #333;
+    text-decoration: none;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(255, 221, 0, 0.3);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.donate-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(255, 221, 0, 0.4);
+}
+
+.donate-btn i {
+    font-size: 1.5rem;
+    color: #6f4e28;
+}
+
+.qr-codes {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.qr-item {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.qr-placeholder {
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    border: 2px dashed #cbd5e1;
+}
+
+.qr-placeholder i {
+    font-size: 3rem;
+    color: #94a3b8;
+}
+
+.qr-placeholder p {
+    font-size: 1rem;
+    color: #64748b;
+    margin: 0;
+    font-weight: 500;
+}
+
+.qr-hint {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* 让 body 作为 flex 列容器，占满全屏 */
 html, body {
     height: 100%;
     margin: 0;
@@ -540,14 +755,13 @@ main {
     flex: 1;
     display: flex;
     flex-direction: column;
-    /* 移除默认的 margin/padding 避免额外留白 */
     margin: 0;
     padding: 0;
     min-height: 0;
-    overflow: auto; /* 改为 auto，避免在小屏被截断 */
+    overflow: auto;
 }
 
 /* 调整页脚，确保它始终在底部 */
 .footer {
-    margin-top: 0;  /* 移除之前的 margin-top: 4rem */
+    margin-top: 0;
 }
